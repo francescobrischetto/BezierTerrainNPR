@@ -1,0 +1,60 @@
+#version 410 core
+
+layout(vertices=3) out;
+
+uniform vec3 gEyeWorldPos;
+uniform mat4 modelMatrix;
+uniform mat4 viewMatrix;
+
+in vec3 tcsPos[];
+in vec3 tcsNormal[];
+
+out vec3 tesPos[];
+out vec3 tesNormal[];
+
+float GetTessLevel(float Distance0, float Distance1)                                            
+{                                                                                               
+    float AvgDistance = (Distance0 + Distance1) / 2.0;                                          
+                                                                                                
+    if (AvgDistance <= 3.0) {                                                                   
+        return 15.0;                                                                            
+    }                                                                                           
+    else if (AvgDistance <= 5.0) {                                                              
+        return 12.0;                                                                             
+    }
+    else if (AvgDistance <= 10.0) {                                                              
+        return 7.0;                                                                             
+    }
+    else if (AvgDistance <= 25.0) {                                                              
+        return 4.0;                                                                             
+    }                                                                                           
+    else {                                                                                      
+        return 1.0;                                                                             
+    }                                                                                           
+}
+
+void main(){
+
+    tesNormal[gl_InvocationID] = tcsNormal[gl_InvocationID];
+    tesPos[gl_InvocationID] = tcsPos[gl_InvocationID];
+
+    // Calculate the distance from the camera to the three control points                       
+    float EyeToVertexDistance0 = distance(gEyeWorldPos, tesPos[0]);                     
+    float EyeToVertexDistance1 = distance(gEyeWorldPos, tesPos[1]);                     
+    float EyeToVertexDistance2 = distance(gEyeWorldPos, tesPos[2]);
+
+    //vec4 e0 = viewMatrix * modelMatrix * vec4( tesPos[0], 1.0 );
+    //float EyeToVertexDistance0 = sqrt(dot(e0.xyz,e0.xyz)); 
+    //vec4 e1 = viewMatrix * modelMatrix * vec4( tesPos[1], 1.0 );
+    //float EyeToVertexDistance1 = sqrt(dot(e1.xyz,e1.xyz));
+    //vec4 e2 = viewMatrix * modelMatrix * vec4( tesPos[2], 1.0 );
+    //float EyeToVertexDistance2 = sqrt(dot(e2.xyz,e2.xyz));     
+                                                                                                
+    // Calculate the tessellation levels                                                        
+    gl_TessLevelOuter[0] = GetTessLevel(EyeToVertexDistance1, EyeToVertexDistance2);            
+    gl_TessLevelOuter[1] = GetTessLevel(EyeToVertexDistance2, EyeToVertexDistance0);            
+    gl_TessLevelOuter[2] = GetTessLevel(EyeToVertexDistance0, EyeToVertexDistance1);            
+    gl_TessLevelInner[0] = gl_TessLevelOuter[2];   
+
+}
+                                                                                         
