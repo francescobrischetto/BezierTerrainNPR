@@ -30,6 +30,8 @@ using namespace std;
 #include <utils/terrain_mesh.h>
 #include <utils/terrain_gen.h>
 #include <utils/bezier_surface.h>
+#include <sstream>
+#include <string>
 
 
 /////////////////// MODEL class ///////////////////////
@@ -57,6 +59,17 @@ public:
         
     }
 
+    TerrainModel(string path)
+    {
+        vector<BezierSurface> surfaces = readModel(path);
+        std::vector<TerrainMesh> tmesh;
+	    tmesh.reserve(surfaces.size());
+        for (const auto& bsurface : surfaces)
+		    tmesh.emplace_back(bsurface);
+        meshes = std::move(tmesh);
+        
+    }
+
 
     //////////////////////////////////////////
 
@@ -73,4 +86,42 @@ public:
 
 private:
 
+    vector<BezierSurface> readModel(string path)
+    {
+        vector<BezierSurface> surfaces;
+        std::ifstream infile(path);
+        std::string line;
+        int count = 0;
+        BezierSurface bs;
+        while (std::getline(infile, line))
+        {
+            std::istringstream iss(line);
+            //First line and every 4 lines (empty), skip
+            if(count == 0 || count == 5){
+                if(count == 5){
+                    surfaces.push_back(bs);
+                }
+                count=1;
+                continue;
+            }
+            //Process 4 control points
+            float p1_x, p1_y, p1_z;
+            float p2_x, p2_y, p2_z;
+            float p3_x, p3_y, p3_z;
+            float p4_x, p4_y, p4_z;
+            if (!(iss >> p1_x >> p1_y >> p1_z
+                      >> p2_x >> p2_y >> p2_z
+                      >> p3_x >> p3_y >> p3_z
+                      >> p4_x >> p4_y >> p4_z)) { break; } // error
+
+            ControlVertices app;
+            app[0] = glm::vec3(p1_x,p1_y,p1_z);
+            app[1] = glm::vec3(p2_x,p2_y,p2_z);
+            app[2] = glm::vec3(p3_x,p3_y,p3_z);
+            app[3] = glm::vec3(p4_x,p4_y,p4_z);
+            bs[count-1] = app;
+            count++;
+        }
+        return surfaces;
+    }
 };

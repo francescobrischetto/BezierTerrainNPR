@@ -215,6 +215,7 @@ int main()
     /////////////////// MODELS AND TEXTURES ///////////////////////
     Model cubeModel("../../models/cube.obj");
     TerrainModel terrainModel(numPatches, generationSeed, consideredOctaves, consideredFrequency);
+    //TerrainModel terrainModel("../../models/teapot.bez");
     //Model terrainModel("../../models/stanford-bunny.obj");
     string textureToLoad = "./Textures/Hatches/";
     vector<GLuint> hatchTextures;
@@ -285,6 +286,10 @@ int main()
         terrainNormalMatrix = glm::mat3(1.0f);
         terrainModelMatrix = glm::translate(terrainModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
         terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+        //For Teapot
+        //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)90.0), glm::vec3(1.0f, 0.0f, 0.0f));
+        //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)180.0), glm::vec3(0.0f, 1.0f, 0.0f));
+        //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/2.0f));
         terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension));
         //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(0.4f, 0.4f, 0.4f));
         terrainNormalMatrix = glm::inverseTranspose(glm::mat3(view*terrainModelMatrix));
