@@ -8,6 +8,11 @@ out vec3 pdir1;
 out vec3 pdir2;
 out float mean_curv;
 
+out float ndotv;
+out float t_kr;
+out float t_dwkr;
+out vec3 w;
+
 uniform mat4 modelMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
@@ -181,7 +186,40 @@ void main()
     pdir1 = v1.x * normalize(dpdu.xyz) + v1.y * normalize(dpdv.xyz);
     pdir2 = v2.x * normalize(dpdu.xyz) + v2.y * normalize(dpdv.xyz);
 
-    
+    /*
+    vec4 mvPosition = viewMatrix * modelMatrix * vec4( position, 1.0 );
+    // view direction, negated to have vector from the vertex to the camera
+    vec3 vViewDirection = -mvPosition.xyz;
+    // projection of the view direction onto the normal
+    vec3 projViewDirN = dot(vViewDirection,LNormal)/(abs(LNormal)*abs(LNormal))*LNormal;
+    // Normalized projection of the view direction onto the local tangent plane
+    vec3 projViewDirTan = normalize(vViewDirection - projViewDirN);
+    */
+
+    // compute vector to cam
+	vec4 mvPosition = viewMatrix * modelMatrix * position;
+	vec3 view = normalize(-mvPosition.xyz);
+	// compute ndotv (and normalize view)
+	ndotv = (1.0f / length(view)) * dot(LNormal,view);
+	//ndotv = max(dot(LNormal,view), 0.0);
+	// optimalisation: if this vector points away from cam, don't even bother computing the rest.
+	// the data will not be used in computing pixel color
+	if(!(ndotv < 0.0f))
+	{
+		// compute kr
+		w = normalize(view - LNormal * dot(view, LNormal));
+  		//t_kr = dot((secondForm * w),w);
+        float u = dot(w, pdir1);
+  		float v = dot(w, pdir2);
+  		float u2 = u*u;
+    	float v2 = v*v;
+        t_kr = (k1*u2) + (k2*v2);
+  		// and dwkr
+        //float dwII = (u2*u*dcurv.x) + (3.0*u*uv*dcurv.y) + (3.0*uv*v*dcurv.z) + (v*v2*dcurv.w); 
+  		// extra term due to second derivative
+  		//t_dwkr = 2.0 * k1 * k2 * ndotv/sqrt((1.0 - pow(ndotv, 2.0)));
+  	}
+
 
     gl_Position = projectionMatrix * viewMatrix * modelMatrix * position;
 
