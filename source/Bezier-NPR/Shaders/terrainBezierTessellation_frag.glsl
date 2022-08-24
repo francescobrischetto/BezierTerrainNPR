@@ -8,21 +8,22 @@ in vec3 LNormal;
 in vec3 pdir1;
 in vec3 pdir2;
 in vec3 w;
+in float kwn;
 
 in float ndotv;
 in float t_kr;
 in float t_dwkr;
 
-float c_limit = 2.1;
+float c_limit = 0.1;
 float sc_limit = 3.1;
 float dwkr_limit = 0.05;
 
 
 void main()
 {
-
+    /*
     vec2 texCoords = TexCoords;
-    /*if(mean_curv < -0.05){
+    if(mean_curv < -0.05){
       FragColor = vec4(0.0,0.0,1.0,1.0);
     }
     else if(mean_curv >= -0.05 && mean_curv < -0.03){
@@ -36,9 +37,22 @@ void main()
     }
     else{
       FragColor = vec4(1.0,0.0,0.0,1.0);
-    }*/
-
-    vec4 color = vec4(1.0f,1.0f,1.0f, 1.0f);
+    }
+    */
+    vec4 color = vec4(0.6,0.6,0.6, 1.0);
+    float contour_limit = (pow(ndotv, 2.0));
+    if(contour_limit<c_limit)
+      {FragColor = vec4(min(color.xyz, vec3(contour_limit, contour_limit, contour_limit)),1.0);}
+    else{
+      if(kwn >= -0.004 && kwn < 0.004 && dFdx(kwn) > 0 && dFdy(kwn) > 0){
+        FragColor = vec4(0.0,0.0,0.0,1.0);
+      }else{
+        FragColor = mix(vec4(0.15,0.15,0.15,1.0),color,clamp((abs(kwn))*500,0,1));
+        //FragColor = vec4(1.0,1.0,1.0,1.0);
+      }
+    }
+    //vec4 color = vec4(1.0f,1.0f,1.0f, 1.0f);
+  
 
     /*
     // use feature size
@@ -55,7 +69,7 @@ void main()
     // suggestive contours
     else if((sc_limit<1.0) && dwkr2>dwkr_limit)
     {color = vec4(min(color.xyz, vec3(sc_limit, sc_limit, sc_limit)),1.0);}*/
-    float kr = abs(t_kr);
+    /*float kr = abs(t_kr);
     float contour_limit = 20.0*(pow(ndotv, 2.0)/kr);
     //float comb = w.x * dFdx(t_kr) + w.y *dFdy(t_kr) / pow(sqrt(w.x*w.x + w.y*w.y + w.z*w.z),3);
     float comb = dFdx(t_kr) + dFdy(t_kr);
@@ -65,7 +79,7 @@ void main()
       color = vec4(0.0, 0.0, 0.0,1.0);
     }
     FragColor = color;
-
+  */
 
     //FragColor = vec4(LNormal, 1.0);
 

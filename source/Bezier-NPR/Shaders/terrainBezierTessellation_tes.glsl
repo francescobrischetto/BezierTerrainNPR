@@ -7,6 +7,7 @@ out vec2 TexCoords;
 out vec3 pdir1;
 out vec3 pdir2;
 out float mean_curv;
+out float kwn;
 
 out float ndotv;
 out float t_kr;
@@ -152,12 +153,14 @@ void main()
     float MM = dot(LNormal,dpduv.xyz);
     float NN = dot(LNormal,dpdvv.xyz);
     mat2 secondForm = mat2(LL, MM, MM, NN);
-    mat2 firstTraspose = mat2(GG, -FF, -FF, EE);
+    //mat2 firstTraspose = mat2(GG, -FF, -FF, EE);
+    mat2 firstTraspose = inverse(firstForm);
     
 
     //Calcolo degli autovalori
-    float detFirstTraspose = 1.0/(EE*GG - FF*FF);
-    mat2 mulMatrix = detFirstTraspose * secondForm * firstTraspose;
+    //float detFirstTraspose = 1.0/(EE*GG - FF*FF);
+    //mat2 mulMatrix = detFirstTraspose * secondForm * firstTraspose;
+    mat2 mulMatrix = secondForm * firstTraspose;
     float k1 = 0;
     float k2 = 0;
     if (mulMatrix[1][0] == 0 ){
@@ -179,6 +182,11 @@ void main()
     //mean_curv = (LL*NN - MM*MM) / (EE*GG - FF*FF);
     mean_curv = k1*k2;
 
+
+    
+
+
+
     //Stima degli autovettori 
     vec2 v1 = estimateEigenVector(mulMatrix, k1);
     vec2 v2 = estimateEigenVector(mulMatrix, k2);
@@ -199,12 +207,32 @@ void main()
     // compute vector to cam
 	vec4 mvPosition = viewMatrix * modelMatrix * position;
 	vec3 view = normalize(-mvPosition.xyz);
+
+    //LNormal è il versore normale del piano tangente
+    //So if you have a vector A and a plane with normal
+    //N, the vector that is resulted by projecting A on
+    //the plane will be B = A - (A.dot.N)N
+    w = view - LNormal * dot(view, LNormal);
+    //Now I need w to be expressed in tangent coordinate system
+    mat3 normalMatrix = transpose(inverse(mat3(modelMatrix)));
+    vec3 TTT = normalize(normalMatrix * vec3(dpdu));
+    vec3 NNN = normalize(normalMatrix * aNormal);
+    vec3 BBB = normalize(normalMatrix * vec3(dpdv));
+
+    TTT = normalize(TTT - dot(TTT, NNN) * NNN);
+    vec3 BBB2 = cross(NNN, TTT);
+    mat3 TBN = inverse(mat3(TTT, BBB2, NNN));
+    vec2 w2 = (TBN * w).xy;
+
+    //The normal curvature of a surface S at a point p measures its curvature in a specific direction x in the tangent plane
+    kwn = (dot((secondForm * w2), w2)/dot(w2,w2));
+
 	// compute ndotv (and normalize view)
-	ndotv = (1.0f / length(view)) * dot(LNormal,view);
-	//ndotv = max(dot(LNormal,view), 0.0);
+	//ndotv = (1.0f / length(view)) * dot(LNormal,view);
+	ndotv = max(dot(LNormal,view), 0.0);
 	// optimalisation: if this vector points away from cam, don't even bother computing the rest.
 	// the data will not be used in computing pixel color
-	if(!(ndotv < 0.0f))
+	/*if(!(ndotv < 0.0f))
 	{
 		// compute kr
 		w = normalize(view - LNormal * dot(view, LNormal));
@@ -218,7 +246,7 @@ void main()
         //float dwII = (u2*u*dcurv.x) + (3.0*u*uv*dcurv.y) + (3.0*uv*v*dcurv.z) + (v*v2*dcurv.w); 
   		// extra term due to second derivative
   		//t_dwkr = 2.0 * k1 * k2 * ndotv/sqrt((1.0 - pow(ndotv, 2.0)));
-  	}
+  	}*/
 
 
     gl_Position = projectionMatrix * viewMatrix * modelMatrix * position;
