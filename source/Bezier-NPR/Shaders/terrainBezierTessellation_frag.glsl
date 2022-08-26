@@ -41,10 +41,11 @@ void main()
     */
     vec4 color = vec4(0.6,0.6,0.6, 1.0);
     float contour_limit = (pow(ndotv, 2.0));
+    float dFKwn = w.x * dFdx(kwn) + w.y * dFdy(kwn);
     if(contour_limit<c_limit)
       {FragColor = vec4(min(color.xyz, vec3(contour_limit, contour_limit, contour_limit)),1.0);}
     else{
-      if(kwn >= -0.004 && kwn < 0.004 && dFdx(kwn) > 0 && dFdy(kwn) > 0){
+      if(kwn >= -0.002 && kwn < 0.002 && dFKwn>0){
         FragColor = vec4(0.0,0.0,0.0,1.0);
       }else{
         FragColor = mix(vec4(0.15,0.15,0.15,1.0),color,clamp((abs(kwn))*500,0,1));
