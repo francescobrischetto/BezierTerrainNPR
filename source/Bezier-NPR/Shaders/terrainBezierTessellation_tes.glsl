@@ -1,22 +1,46 @@
 #version 410 core
 
+// Define the type of input patch, a grid of 16 control points
 layout(quads, equal_spacing, ccw) in;
 
-out vec3 LNormal;
-out vec2 TexCoords;
-out vec3 pdir1;
-out vec3 pdir2;
-out float mean_curv;
-out float kwn;
-
-out float ndotv;
-out float t_kr;
-out float t_dwkr;
-out vec3 w;
+out vec3 viewVectorProjectedInTangentPlane;
+out float normalCurvatureInDirectionW;
+out float normalDotViewValue;
 
 uniform mat4 modelMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
+
+
+vec2 calculateCurvaturePairFromFirstSecondFormMatrix(mat2 firstFundamentalFormMatrix, mat2 secondFundamentalFormMatrix){
+    // Inverse of the first Fundamental Form Matrix
+    mat2 firstTraspose = inverse(firstFundamentalFormMatrix); 
+    // 2x2 multiplication matrix between second form and inverse of first form
+    mat2 resultingMultiplicationMatrix = secondFundamentalFormMatrix * firstTraspose;
+    // Curvature Values
+    float k1 = 0;       float k2 = 0;
+    // EigenValues Calculation of 2x2 result matrix (application of simple matrix algebra to find eigenvalues)
+    if (resultingMultiplicationMatrix[1][0] == 0 ){
+        k1 = resultingMultiplicationMatrix[0][0];
+        k2 = resultingMultiplicationMatrix[1][1];
+    }
+    else if (resultingMultiplicationMatrix[0][0] == 0 ){
+        k1 = resultingMultiplicationMatrix[0][1];
+        k2 = resultingMultiplicationMatrix[1][0];
+    }
+    else{
+        k1 = resultingMultiplicationMatrix[0][0];
+        k2 = resultingMultiplicationMatrix[1][1] 
+           - resultingMultiplicationMatrix[1][0]/resultingMultiplicationMatrix[0][0] 
+           * resultingMultiplicationMatrix[0][1];
+    }
+
+    vec2 curvatureValues = vec2(k1,k2);
+    return curvatureValues;
+
+    //UNUSED STUFFS: float detFirstTraspose = 1.0/(EE*GG - FF*FF);
+    //mat2 mulMatrix = detFirstTraspose * secondForm * firstTraspose;
+}
 
 // Inverse Power Iteration method to estimate eigenvector from eigenvalue
 vec2 estimateEigenVector(mat2 matrix, float eigenValue){
@@ -39,217 +63,155 @@ vec2 estimateEigenVector(mat2 matrix, float eigenValue){
 		count++;
 
 	}
-
     return v;
+}
+
+vec3 calculateCurvaturePairFromFirstSecondFormMatrix(mat2 firstFundamentalFormMatrix, mat2 secondFundamentalFormMatrix, float eigenValue, vec3 tangentVector, vec3 bitangentVector){
+    // Inverse of the first Fundamental Form Matrix
+    mat2 firstTraspose = inverse(firstFundamentalFormMatrix); 
+    // 2x2 multiplication matrix between second form and inverse of first form
+    mat2 resultingMultiplicationMatrix = secondFundamentalFormMatrix * firstTraspose;
+    // EigenVector (principal curvature direction) in tangent Space
+    vec2 eigenVector = estimateEigenVector(resultingMultiplicationMatrix, eigenValue);
+    // EigenVector (principal curvature direction) in 3D Space
+    vec3 resultingEigenVector = eigenVector.x * normalize(tangentVector) + eigenVector.y * normalize(bitangentVector);
+    return resultingEigenVector;
+}
+
+
+mat3 ComputeTangentBitangentNormalMatrix(vec3 tangentVector, vec3 bitangentVector, vec3 normalVector){
+    mat3 normalMatrix = transpose(inverse(mat3(modelMatrix)));
+    vec3 T = normalize(normalMatrix * tangentVector);
+    vec3 N = normalize(normalMatrix * normalVector);
+    vec3 B = normalize(normalMatrix * bitangentVector);
+    T = normalize(T - dot(T, N) * B);
+    B = cross(N, T);
+
+    //  TBN Matrix
+    mat3 TBN = inverse(mat3(T, B, N));
+    return TBN;
 }
 
 void main()
 {  
     // We get all the 16 Control Points
-    vec4 p00 = gl_in[0].gl_Position;
-    vec4 p10 = gl_in[1].gl_Position;
-    vec4 p20 = gl_in[2].gl_Position;
-    vec4 p30 = gl_in[3].gl_Position;
-    vec4 p01 = gl_in[4].gl_Position;
-    vec4 p11 = gl_in[5].gl_Position;
-    vec4 p21 = gl_in[6].gl_Position;
-    vec4 p31 = gl_in[7].gl_Position;
-    vec4 p02 = gl_in[8].gl_Position;
-    vec4 p12 = gl_in[9].gl_Position;
-    vec4 p22 = gl_in[10].gl_Position;
-    vec4 p32 = gl_in[11].gl_Position;
-    vec4 p03 = gl_in[12].gl_Position;
-    vec4 p13 = gl_in[13].gl_Position;
-    vec4 p23 = gl_in[14].gl_Position;
-    vec4 p33 = gl_in[15].gl_Position;
-
+    vec4 p00 = gl_in[0].gl_Position;    vec4 p01 = gl_in[4].gl_Position;
+    vec4 p10 = gl_in[1].gl_Position;    vec4 p11 = gl_in[5].gl_Position;
+    vec4 p20 = gl_in[2].gl_Position;    vec4 p21 = gl_in[6].gl_Position;
+    vec4 p30 = gl_in[3].gl_Position;    vec4 p31 = gl_in[7].gl_Position;
+    
+    vec4 p02 = gl_in[8].gl_Position;    vec4 p03 = gl_in[12].gl_Position;
+    vec4 p12 = gl_in[9].gl_Position;    vec4 p13 = gl_in[13].gl_Position;
+    vec4 p22 = gl_in[10].gl_Position;   vec4 p23 = gl_in[14].gl_Position;
+    vec4 p32 = gl_in[11].gl_Position;   vec4 p33 = gl_in[15].gl_Position;
+    
     // We get the U,V coords
     float u = gl_TessCoord.x;
     float v = gl_TessCoord.y;
-    TexCoords = vec2(u, v);
+    vec2 uvCoordinatesInBezierPatch = vec2(u, v);
 
-    // U - weights for bezier surface 
-    float bu0 = (1-u) * (1-u) * (1-u);
-    float bu1 = 3 * u * (1-u) * (1-u);
-    float bu2 = 3 * u * u * (1-u);
-    float bu3 = u * u * u;
+    // U - weights for bezier surface                           // V - weights for bezier surface
+    float bu0 = (1-u) * (1-u) * (1-u);                          float bv0 = (1-v) * (1-v) * (1-v);
+    float bu1 = 3 * u * (1-u) * (1-u);                          float bv1 = 3 * v * (1-v) * (1-v);
+    float bu2 = 3 * u * u * (1-u);                              float bv2 = 3 * v * v * (1-v);
+    float bu3 = u * u * u;                                      float bv3 = v * v * v;
     
-    // U - derivate weights for bezier surface 
-    float dbu0 = -3 * (1-u) * (1-u);
-    float dbu1 = (3 * (1-u) * (1-u)) - ((6*u) * (1-u));
-    float dbu2 = ((6*u) * (1 - u)) - (3 * u * u); 
-    float dbu3 = 3 * u * u;
+    // U - derivate weights for bezier surface                  // V - derivate weights for bezier surface 
+    float dbu0 = -3 * (1-u) * (1-u);                            float dbv0 = -3 * (1-v) * (1-v);
+    float dbu1 = (3 * (1-u) * (1-u)) - ((6*u) * (1-u));         float dbv1 = (3 * (1-v) * (1-v)) - ((6*v) * (1-v));
+    float dbu2 = ((6*u) * (1 - u)) - (3 * u * u);               float dbv2 = ((6*v) * (1 - v)) - (3 * v * v); 
+    float dbu3 = 3 * u * u;                                     float dbv3 = 3 * v * v;
 
-    // U - double derivate weights for bezier surface 
-    float ddbu0 = 6 * (1-u) ;
-    float ddbu1 = (-6 * (1-u)) - (6 * (1-u) - 6 * u);
-    float ddbu2 = (6 * (1 - u)) - (6 * u) - (6 * u); 
-    float ddbu3 = 6 * u;
-
-    // V - weights for bezier surface
-    float bv0 = (1-v) * (1-v) * (1-v);
-    float bv1 = 3 * v * (1-v) * (1-v);
-    float bv2 = 3 * v * v * (1-v);
-    float bv3 = v * v * v;
-
-    // V - derivate weights for bezier surface 
-    float dbv0 = -3 * (1-v) * (1-v);
-    float dbv1 = (3 * (1-v) * (1-v)) - ((6*v) * (1-v));
-    float dbv2 = ((6*v) * (1 - v)) - (3 * v * v); 
-    float dbv3 = 3 * v * v;
-    
-    // V - double derivate weights for bezier surface 
-    float ddbv0 = 6 * (1-v) ;
-    float ddbv1 = (-6 * (1-v)) - (6 * (1-v) - 6 * v);
-    float ddbv2 = (6 * (1 - v)) - (6 * v) - (6 * v); 
-    float ddbv3 = 6 * v;
+    // U - double derivate weights for bezier surface           // V - double derivate weights for bezier surface 
+    float ddbu0 = 6 * (1-u) ;                                   float ddbv0 = 6 * (1-v) ;
+    float ddbu1 = (-6 * (1-u)) - (6 * (1-u) - 6 * u);           float ddbv1 = (-6 * (1-v)) - (6 * (1-v) - 6 * v);
+    float ddbu2 = (6 * (1 - u)) - (6 * u) - (6 * u);            float ddbv2 = (6 * (1 - v)) - (6 * v) - (6 * v); 
+    float ddbu3 = 6 * u;                                        float ddbv3 = 6 * v;
 
     // Calculation of the position in the bezier patch using weights and control points
-     vec4 position = bu0 * ( bv0*p00 + bv1*p01 + bv2*p02 + bv3*p03 )
-    + bu1 * ( bv0*p10 + bv1*p11 + bv2*p12 + bv3*p13 )
-    + bu2 * ( bv0*p20 + bv1*p21 + bv2*p22 + bv3*p23 )
-    + bu3 * ( bv0*p30 + bv1*p31 + bv2*p32 + bv3*p33 );
+    vec4 vertexPosition = bu0 * ( bv0*p00 + bv1*p01 + bv2*p02 + bv3*p03 )
+                        + bu1 * ( bv0*p10 + bv1*p11 + bv2*p12 + bv3*p13 )
+                        + bu2 * ( bv0*p20 + bv1*p21 + bv2*p22 + bv3*p23 )
+                        + bu3 * ( bv0*p30 + bv1*p31 + bv2*p32 + bv3*p33 );
 
-    // Calculation of tangent vectors in the bezier patch using derivate weights and control points
-    vec4 dpdu = dbu0 * ( bv0*p00 + bv1*p01 + bv2*p02 + bv3*p03 )
-    + dbu1 * ( bv0*p10 + bv1*p11 + bv2*p12 + bv3*p13 )
-    + dbu2 * ( bv0*p20 + bv1*p21 + bv2*p22 + bv3*p23 )
-    + dbu3 * ( bv0*p30 + bv1*p31 + bv2*p32 + bv3*p33 );
+    // Calculation of tangent/bitangent vectors in the bezier patch using derivate weights and control points
+    vec3 tangentVector = (dbu0 * ( bv0*p00 + bv1*p01 + bv2*p02 + bv3*p03 )
+                       + dbu1 * ( bv0*p10 + bv1*p11 + bv2*p12 + bv3*p13 )
+                       + dbu2 * ( bv0*p20 + bv1*p21 + bv2*p22 + bv3*p23 )
+                       + dbu3 * ( bv0*p30 + bv1*p31 + bv2*p32 + bv3*p33 )).xyz;
 
-    vec4 dpdv = bu0 * ( dbv0*p00 + dbv1*p01 + dbv2*p02 + dbv3*p03 )
-    + bu1 * ( dbv0*p10 + dbv1*p11 + dbv2*p12 + dbv3*p13 )
-    + bu2 * ( dbv0*p20 + dbv1*p21 + dbv2*p22 + dbv3*p23 )
-    + bu3 * ( dbv0*p30 + dbv1*p31 + dbv2*p32 + dbv3*p33 );
+    vec3 bitangentVector = (bu0 * ( dbv0*p00 + dbv1*p01 + dbv2*p02 + dbv3*p03 )
+                         + bu1 * ( dbv0*p10 + dbv1*p11 + dbv2*p12 + dbv3*p13 )
+                         + bu2 * ( dbv0*p20 + dbv1*p21 + dbv2*p22 + dbv3*p23 )
+                         + bu3 * ( dbv0*p30 + dbv1*p31 + dbv2*p32 + dbv3*p33 )).xyz;
 
     // Computation of Normal vector (cross product + normalization of tangent vectors)
-    vec3 aNormal = cross( dpdu.xyz, dpdv.xyz );
-    LNormal = normalize(aNormal);
+    vec3 normalVector = normalize(cross( tangentVector.xyz, bitangentVector.xyz ));
 
     // Computation of partial derivatives for second fundamental form Matrix
-    vec4 dpduu = ddbu0 * ( bv0*p00 + bv1*p01 + bv2*p02 + bv3*p03 )
-    + ddbu1 * ( bv0*p10 + bv1*p11 + bv2*p12 + bv3*p13 )
-    + ddbu2 * ( bv0*p20 + bv1*p21 + bv2*p22 + bv3*p23 )
-    + ddbu3 * ( bv0*p30 + bv1*p31 + bv2*p32 + bv3*p33 );
+    vec3 secondPartialDerivativeUU = (ddbu0 * ( bv0*p00 + bv1*p01 + bv2*p02 + bv3*p03 )
+                                   + ddbu1 * ( bv0*p10 + bv1*p11 + bv2*p12 + bv3*p13 )
+                                   + ddbu2 * ( bv0*p20 + bv1*p21 + bv2*p22 + bv3*p23 )
+                                   + ddbu3 * ( bv0*p30 + bv1*p31 + bv2*p32 + bv3*p33 )).xyz;
 
-    vec4 dpduv = dbu0 * ( dbv0*p00 + dbv1*p01 + dbv2*p02 + dbv3*p03 )
-    + dbu1 * ( dbv0*p10 + dbv1*p11 + dbv2*p12 + dbv3*p13 )
-    + dbu2 * ( dbv0*p20 + dbv1*p21 + dbv2*p22 + dbv3*p23 )
-    + dbu3 * ( dbv0*p30 + dbv1*p31 + dbv2*p32 + dbv3*p33 );
+    vec3 secondPartialDerivativeUV = (dbu0 * ( dbv0*p00 + dbv1*p01 + dbv2*p02 + dbv3*p03 )
+                                   + dbu1 * ( dbv0*p10 + dbv1*p11 + dbv2*p12 + dbv3*p13 )
+                                   + dbu2 * ( dbv0*p20 + dbv1*p21 + dbv2*p22 + dbv3*p23 )
+                                   + dbu3 * ( dbv0*p30 + dbv1*p31 + dbv2*p32 + dbv3*p33 )).xyz;
 
-    vec4 dpdvv = bu0 * ( ddbv0*p00 + ddbv1*p01 + ddbv2*p02 + ddbv3*p03 )
-    + bu1 * ( ddbv0*p10 + ddbv1*p11 + ddbv2*p12 + ddbv3*p13 )
-    + bu2 * ( ddbv0*p20 + ddbv1*p21 + ddbv2*p22 + ddbv3*p23 )
-    + bu3 * ( ddbv0*p30 + ddbv1*p31 + ddbv2*p32 + ddbv3*p33 );
-
+    vec3 secondPartialDerivativeVV = (bu0 * ( ddbv0*p00 + ddbv1*p01 + ddbv2*p02 + ddbv3*p03 )
+                                   + bu1 * ( ddbv0*p10 + ddbv1*p11 + ddbv2*p12 + ddbv3*p13 )
+                                   + bu2 * ( ddbv0*p20 + ddbv1*p21 + ddbv2*p22 + ddbv3*p23 )
+                                   + bu3 * ( ddbv0*p30 + ddbv1*p31 + ddbv2*p32 + ddbv3*p33 )).xyz;
     
     // First Fundamental Form Matrix
-    float EE = dot(dpdu.xyz,dpdu.xyz);
-    float FF = dot(dpdu.xyz,dpdv.xyz);
-    float GG = dot(dpdv.xyz,dpdv.xyz);
-    mat2 firstForm = mat2(EE, FF, FF, GG);
+    float E = dot( tangentVector,tangentVector );
+    float F = dot( tangentVector,bitangentVector );
+    float G = dot( bitangentVector,bitangentVector );
+    mat2 firstFundamentalFormMatrix = mat2(E, F, F, G);
 
     // Second Fundamental Form Matrix
-    float LL = dot(LNormal,dpduu.xyz);
-    float MM = dot(LNormal,dpduv.xyz);
-    float NN = dot(LNormal,dpdvv.xyz);
-    mat2 secondForm = mat2(LL, MM, MM, NN);
-    //mat2 firstTraspose = mat2(GG, -FF, -FF, EE);
-    mat2 firstTraspose = inverse(firstForm);
-    
+    float L = dot(normalVector,secondPartialDerivativeUU);
+    float M = dot(normalVector,secondPartialDerivativeUV);
+    float N = dot(normalVector,secondPartialDerivativeVV);
+    mat2 secondFundamentalFormMatrix = mat2(L, M, M, N);
 
-    //Calcolo degli autovalori
-    //float detFirstTraspose = 1.0/(EE*GG - FF*FF);
-    //mat2 mulMatrix = detFirstTraspose * secondForm * firstTraspose;
-    mat2 mulMatrix = secondForm * firstTraspose;
-    float k1 = 0;
-    float k2 = 0;
-    if (mulMatrix[1][0] == 0 ){
-        k1 = mulMatrix[0][0];
-        k2 = mulMatrix[1][1];
-    }
-    else if (mulMatrix[0][0] == 0 ){
-        k1 = mulMatrix[0][1];
-        k2 = mulMatrix[1][0];
-    }
-    else{
-        k1 = mulMatrix[0][0];
-        k2 = mulMatrix[1][1] - mulMatrix[1][0]/mulMatrix[0][0] * mulMatrix[0][1];
-    }
-    //Mean Curvature Computation
-    //float mean_curv1 = (EE*NN - 2*FF*MM + GG*LL) / (2*(EE*GG - FF*FF));
-    mean_curv = k1 * k2 / 2;
-    //Gaussian Curvature Computation
-    //mean_curv = (LL*NN - MM*MM) / (EE*GG - FF*FF);
-    mean_curv = k1*k2;
+    // Calculation of principal curvatures, k1 and k2, values given First and Second Fundamental Form Matrices
+    vec2 curvatureValues = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix);
+    float k1 = curvatureValues.x;       float k2 = curvatureValues.y;
+    // Calculation of Mean and Gaussian Curvature based on principal curvatures, k1 and k2, previously calculated
 
+    // Mean Curvature Computation        { Can be also computed directly as: ( E*N - 2*F*M + G*L ) / ( 2*( E*G - F*F ) ) }
+    float meanCurvature = k1 * k2 / 2;
 
-    
+    // Gaussian Curvature Computation    { Can be also computed directly as: ( L*N - M*M ) / ( E*G - F*F ) }
+    float gaussianCurvature = k1 * k2;
 
+    // Calculation of principal curvatures, pdir1 and pdir2, directions in 3D space, given EigenValue, Tangent vector, Bitangent vector, First and Second Fundamental Form Matrices
+    vec3 principalDirection1 = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix, k1, tangentVector, bitangentVector);
+    vec3 principalDirection2 = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix, k2, tangentVector, bitangentVector);
 
+    // Calculation of vector to camera
+	vec3 vectorToCamera = normalize(-(viewMatrix * modelMatrix * vertexPosition).xyz);
 
-    //Stima degli autovettori 
-    vec2 v1 = estimateEigenVector(mulMatrix, k1);
-    vec2 v2 = estimateEigenVector(mulMatrix, k2);
-
-    pdir1 = v1.x * normalize(dpdu.xyz) + v1.y * normalize(dpdv.xyz);
-    pdir2 = v2.x * normalize(dpdu.xyz) + v2.y * normalize(dpdv.xyz);
-
-    /*
-    vec4 mvPosition = viewMatrix * modelMatrix * vec4( position, 1.0 );
-    // view direction, negated to have vector from the vertex to the camera
-    vec3 vViewDirection = -mvPosition.xyz;
-    // projection of the view direction onto the normal
-    vec3 projViewDirN = dot(vViewDirection,LNormal)/(abs(LNormal)*abs(LNormal))*LNormal;
-    // Normalized projection of the view direction onto the local tangent plane
-    vec3 projViewDirTan = normalize(vViewDirection - projViewDirN);
-    */
-
-    // compute vector to cam
-	vec4 mvPosition = viewMatrix * modelMatrix * position;
-	vec3 view = normalize(-mvPosition.xyz);
-
-    //LNormal è il versore normale del piano tangente
+    //normalVector è il versore normale del piano tangente
     //So if you have a vector A and a plane with normal
     //N, the vector that is resulted by projecting A on
     //the plane will be B = A - (A.dot.N)N
-    w = view - LNormal * dot(view, LNormal);
+    viewVectorProjectedInTangentPlane = vectorToCamera - normalVector * dot(vectorToCamera, normalVector);
     //Now I need w to be expressed in tangent coordinate system
-    mat3 normalMatrix = transpose(inverse(mat3(modelMatrix)));
-    vec3 TTT = normalize(normalMatrix * vec3(dpdu));
-    vec3 NNN = normalize(normalMatrix * aNormal);
-    vec3 BBB = normalize(normalMatrix * vec3(dpdv));
-
-    TTT = normalize(TTT - dot(TTT, NNN) * NNN);
-    vec3 BBB2 = cross(NNN, TTT);
-    mat3 TBN = inverse(mat3(TTT, BBB2, NNN));
-    vec2 w2 = (TBN * w).xy;
+    mat3 TBN = ComputeTangentBitangentNormalMatrix(tangentVector, bitangentVector, normalVector);
+    //  view Vector Projected in Tangent Plane expressed in Tangent Coordinate System
+    vec2 w = (TBN * viewVectorProjectedInTangentPlane).xy;
 
     //The normal curvature of a surface S at a point p measures its curvature in a specific direction x in the tangent plane
-    kwn = (dot((secondForm * w2), w2)/dot(w2,w2));
+    normalCurvatureInDirectionW = ( dot(( secondFundamentalFormMatrix * w ), w)/dot(w,w) );
 
-	// compute ndotv (and normalize view)
-	//ndotv = (1.0f / length(view)) * dot(LNormal,view);
-	ndotv = max(dot(LNormal,view), 0.0);
-	// optimalisation: if this vector points away from cam, don't even bother computing the rest.
-	// the data will not be used in computing pixel color
-	/*if(!(ndotv < 0.0f))
-	{
-		// compute kr
-		w = normalize(view - LNormal * dot(view, LNormal));
-  		//t_kr = dot((secondForm * w),w);
-        float u = dot(w, pdir1);
-  		float v = dot(w, pdir2);
-  		float u2 = u*u;
-    	float v2 = v*v;
-        t_kr = (k1*u2) + (k2*v2);
-  		// and dwkr
-        //float dwII = (u2*u*dcurv.x) + (3.0*u*uv*dcurv.y) + (3.0*uv*v*dcurv.z) + (v*v2*dcurv.w); 
-  		// extra term due to second derivative
-  		//t_dwkr = 2.0 * k1 * k2 * ndotv/sqrt((1.0 - pow(ndotv, 2.0)));
-  	}*/
+	// compute ndotv
+	normalDotViewValue = max(dot(normalVector,vectorToCamera), 0.0);
 
-
-    gl_Position = projectionMatrix * viewMatrix * modelMatrix * position;
+    //passing position to fragment Shader
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vertexPosition;
 
 
 

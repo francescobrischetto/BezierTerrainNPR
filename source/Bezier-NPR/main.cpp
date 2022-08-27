@@ -208,7 +208,7 @@ int main()
     Shader skybox_shader = Shader("Shaders/skybox_vert.glsl", "Shaders/skybox_frag.glsl");
     //Shader illumination_shader = Shader("Shaders/basic.vert", "Shaders/basic.frag");
     Shader illumination_shader = Shader("Shaders/terrainBezierTessellation_vert.glsl", "Shaders/terrainBezierTessellation_frag.glsl",nullptr,"Shaders/terrainBezierTessellation_tcs.glsl","Shaders/terrainBezierTessellation_tes.glsl");
-
+    //Shader illumination_shader = Shader("Shaders/terrainBezierTesHatching_vert.glsl", "Shaders/terrainBezierTesHatching_frag.glsl","Shaders/terrainBezierTesHatching_geom.glsl","Shaders/terrainBezierTesHatching_tcs.glsl","Shaders/terrainBezierTesHatching_tes.glsl");
     //We apply the first style
     //Styles[styleIndex]();
 
@@ -284,14 +284,19 @@ int main()
         // Terrain Rendering
         terrainModelMatrix = glm::mat4(1.0f);
         terrainNormalMatrix = glm::mat3(1.0f);
-        terrainModelMatrix = glm::translate(terrainModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
-        terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+        
+
+
         //For Teapot
         //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)90.0), glm::vec3(1.0f, 0.0f, 0.0f));
         //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)180.0), glm::vec3(0.0f, 1.0f, 0.0f));
-        //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/2.0f));
+        //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/4.0f));
+
+        //For Terrain
+        terrainModelMatrix = glm::translate(terrainModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
+        terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
         terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension));
-        //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(0.4f, 0.4f, 0.4f));
+        
         terrainNormalMatrix = glm::inverseTranspose(glm::mat3(view*terrainModelMatrix));
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(terrainModelMatrix));
         glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(terrainNormalMatrix));
