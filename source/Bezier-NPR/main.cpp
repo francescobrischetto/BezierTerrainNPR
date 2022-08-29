@@ -78,7 +78,7 @@ void LoadTextureCubeSide(string path, string side_image, GLuint side_name);
 GLint LoadTextureCube(string path);
 GLint LoadTexture(const char* path);
 
-//Styles
+// Predefined Styles
 void ReddishStyle();
 void BlackAndWhiteStyle();
 void DirtStyle();
@@ -110,18 +110,20 @@ GLfloat clearColor[] = {0.26f, 0.46f, 0.98f};
 
 // dimensions of terrain and position of the camera
 GLfloat terrainDimension = 500.0f;
-// we create a camera. We pass the initial position as a parameter to the constructor. The last boolean tells that we want a camera "anchored" to the ground
-Camera camera(glm::vec3(0.0f, 1.3f * terrainDimension,  1.0f * terrainDimension), terrainDimension * 0.15f, GL_TRUE);
 // position of a pointlight
-glm::vec3 lightPos0 = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
+glm::vec3 lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
+glm::vec3 cameraPosition = glm::vec3(0.0f, 1.3f * terrainDimension,  1.0f * terrainDimension);
+glm::vec3 cameraOrientation = glm::vec3(0.0f, 1.0f,  0.0f);
+GLfloat cameraSpeed = terrainDimension * 0.15f;
+// we create a camera. We pass the initial position as a parameter to the constructor. The last boolean tells that we want a camera "anchored" to the ground
+Camera camera(cameraPosition , cameraSpeed, GL_TRUE);
+
 
 //Terrain Generator Parameters
 GLuint numPatches = 100;
 GLuint generationSeed = 45;
 GLuint consideredOctaves = 8;
 GLfloat consideredFrequency = 3.0;
-GLuint pointsToEvalXY = 7;
-GLfloat displacementFactor = 0.01;
 
 // Uniforms to pass to shaders
 //User UI parameters
@@ -135,17 +137,10 @@ GLuint celShadingSize = 15;
 GLuint shadingType = 0;
 bool enableContours = true;
 bool enableSuggestiveContours = true;
-bool enableHatching = true;
-bool enableGrassTexture = true;
 // Contour and Suggestive Contour limit parameters 
 GLfloat contourLimit = 1.5;
-GLfloat suggestivecLimit = 1.5;
 //Directional derivative of Radial Curvature Limit
 GLfloat directionalDerivativeLimit = 0.005;
-const string hatchTypes[] = {"standardLines.png", "dots.png", "wriggles.png"};
-GLuint hatchIndex = 0;
-const string grassTypes[] = {"grass1.jpg", "grass2.jpg", "dirt.jpg", "sand.jpg"};
-GLuint grassIndex = 0;
 
 //Styles we can switch in UI
 typedef void (*PreloadedStyleFunction) ();
@@ -156,9 +151,17 @@ const PreloadedStyleFunction Styles[] =
         DirtStyle,
         GrassStyle
     };
+const string StylesPrettyNames[] = 
+    {
+        "Black and White Style", 
+        "Reddish Style", 
+        "Dirt Style",
+        "Grass Style"
+    };    
 GLuint styleIndex = 0;
 
-
+// UI Tabs manager
+int switchTabs = 0;
 
 /////////////////// MAIN function ///////////////////////
 int main()
@@ -208,27 +211,12 @@ int main()
     Shader skybox_shader = Shader("Shaders/skybox_vert.glsl", "Shaders/skybox_frag.glsl");
     //Shader illumination_shader = Shader("Shaders/basic.vert", "Shaders/basic.frag");
     Shader illumination_shader = Shader("Shaders/terrainBezierTessellation_vert.glsl", "Shaders/terrainBezierTessellation_frag.glsl",nullptr,"Shaders/terrainBezierTessellation_tcs.glsl","Shaders/terrainBezierTessellation_tes.glsl");
-    //Shader illumination_shader = Shader("Shaders/terrainBezierTesHatching_vert.glsl", "Shaders/terrainBezierTesHatching_frag.glsl","Shaders/terrainBezierTesHatching_geom.glsl","Shaders/terrainBezierTesHatching_tcs.glsl","Shaders/terrainBezierTesHatching_tes.glsl");
     //We apply the first style
-    //Styles[styleIndex]();
+    //TODO:Remove Styles[styleIndex]();
 
     /////////////////// MODELS AND TEXTURES ///////////////////////
     Model cubeModel("../../models/cube.obj");
     TerrainModel terrainModel(numPatches, generationSeed, consideredOctaves, consideredFrequency);
-    //TerrainModel terrainModel("../../models/teapot.bez");
-    //Model terrainModel("../../models/stanford-bunny.obj");
-    string textureToLoad = "./Textures/Hatches/";
-    vector<GLuint> hatchTextures;
-    for(int i=0; i < std::size(hatchTypes); i++){
-        string loadTexture = textureToLoad + hatchTypes[i];
-        hatchTextures.push_back(LoadTexture(loadTexture.c_str()));
-    }
-    string grassesToLoad = "./Textures/Grasses/";
-    vector<GLuint> grassTextures;
-    for(int i=0; i < std::size(grassTypes); i++){
-        string loadTexture = grassesToLoad + grassTypes[i];
-        grassTextures.push_back(LoadTexture(loadTexture.c_str()));
-    }
     GLuint skyboxTexture = LoadTextureCube("Textures/Skyboxes/nprSky/"); 
     // Projection matrix: FOV angle, aspect ratio, near and far planes
     glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, near, far);
@@ -277,37 +265,24 @@ int main()
         if (spinning)
             orientationY+=(deltaTime*spin_speed);
 
-        
-
         /////////////////// RENDERING OF THE OBJECTS IN THE SCENE ///////////////////////
         illumination_shader.Use();
         // Terrain Rendering
         terrainModelMatrix = glm::mat4(1.0f);
         terrainNormalMatrix = glm::mat3(1.0f);
-        
-
-
-        //For Teapot
-        //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)90.0), glm::vec3(1.0f, 0.0f, 0.0f));
-        //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)180.0), glm::vec3(0.0f, 1.0f, 0.0f));
-        //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/4.0f));
-
-        //For Terrain
         terrainModelMatrix = glm::translate(terrainModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
         terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
         terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension));
-        
         terrainNormalMatrix = glm::inverseTranspose(glm::mat3(view*terrainModelMatrix));
+
+        // Uniforms passed to the shaders
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(terrainModelMatrix));
         glUniformMatrix3fv(glGetUniformLocation(illumination_shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(terrainNormalMatrix));
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, hatchTextures[hatchIndex]);
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(illumination_shader.Program, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniform3fv(glGetUniformLocation(illumination_shader.Program, "pointLightWorldPosition"), 1, glm::value_ptr(lightPos0));
+        glUniform3fv(glGetUniformLocation(illumination_shader.Program, "pointLightWorldPosition"), 1, glm::value_ptr(lightPosition));
         glUniform3fv(glGetUniformLocation(illumination_shader.Program, "cameraWorldPosition"), 1, glm::value_ptr(camera.Position));
         glUniform1f(glGetUniformLocation(illumination_shader.Program, "contourLimit"), contourLimit);
-        glUniform1f(glGetUniformLocation(illumination_shader.Program, "suggestivecLimit"), suggestivecLimit);
         glUniform1f(glGetUniformLocation(illumination_shader.Program, "directionalDerivativeLimit"), directionalDerivativeLimit);
         glUniform3fv(glGetUniformLocation(illumination_shader.Program, "warmColor"), 1, warmColor);
         glUniform3fv(glGetUniformLocation(illumination_shader.Program, "coldColor"), 1, coldColor);
@@ -315,16 +290,11 @@ int main()
         glUniform1i(glGetUniformLocation(illumination_shader.Program, "shininessFactor"), shininessFactor);
         glUniform1i(glGetUniformLocation(illumination_shader.Program, "celShadingSize"), celShadingSize);
         glUniform2fv(glGetUniformLocation(illumination_shader.Program, "viewportResolution"), 1, viewportResolution );
-        glUniform1i(glGetUniformLocation(illumination_shader.Program, "hatchTexture"), 0);
         glUniform1i(glGetUniformLocation(illumination_shader.Program, "shadingType"), shadingType);
         glUniform1i(glGetUniformLocation(illumination_shader.Program, "enableContours"), enableContours);
         glUniform1i(glGetUniformLocation(illumination_shader.Program, "enableSuggestiveContours"), enableSuggestiveContours);
-        glUniform1i(glGetUniformLocation(illumination_shader.Program, "enableHatching"), enableHatching);
-        glUniform1i(glGetUniformLocation(illumination_shader.Program, "enableGrassTexture"), enableGrassTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, grassTextures[grassIndex]);
-        glUniform1i(glGetUniformLocation(illumination_shader.Program, "grassTexture"), 1);
         
+        // Draw call for the terrain
         terrainModel.Draw();
         
         // Skybox Rendering
@@ -346,89 +316,156 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(skybox_shader.Program, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(view));
         glUniform3fv(glGetUniformLocation(skybox_shader.Program, "backgroundColor"), 1, backgroundColor);
         glUniform1i(glGetUniformLocation(skybox_shader.Program, "skyboxCube"), 2);
+        // Draw call for the background skybox
         cubeModel.Draw();
         glDepthFunc(GL_LESS);
         glEnable(GL_CULL_FACE);
         
         // Render UI Window
-        ImGui::Begin("Project Settings");
+        ImGui::Begin("Project Settings",0, ImGuiWindowFlags_AlwaysAutoResize);
          // UI scaling
-        ImGui::SetWindowFontScale( 1.2f );
-        ImGui::NewLine();
-        ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
-        ImGui::NewLine();
-        ImGui::Separator();
-        ImGui::Text("Load predefined Styles:");
+        ImGui::SetWindowFontScale( 1.4f );
+        
+        ImGui::PushItemWidth(ImGui::GetWindowWidth() * 0.5f);
+        if (ImGui::Button("Application", ImVec2(110.0f, 50.0f)))         switchTabs = 0;
         ImGui::SameLine();
-        if( ImGui::Button( "Change Style" ) )
-        {
-            styleIndex++;
-            styleIndex = styleIndex % std::size(Styles);
-            Styles[styleIndex]();
-            Model app(numPatches, generationSeed, consideredOctaves, consideredFrequency, pointsToEvalXY, pointsToEvalXY, displacementFactor);
-            terrainModel.meshes.clear();
-            for(int i=0; i<size(app.meshes); i++){
-                    //terrainModel.meshes.push_back(Mesh(app.meshes[i].vertices,app.meshes[i].indices));
+		if (ImGui::Button("Style", ImVec2(110.0f, 50.0f)))               switchTabs = 1;
+        ImGui::SameLine();
+        if (ImGui::Button("Terrain", ImVec2(110.0f, 50.0f)))             switchTabs = 2;
+        ImGui::SameLine();
+        if (ImGui::Button("Shading", ImVec2(110.0f, 50.0f)))             switchTabs = 3;
+        ImGui::SameLine();
+        if (ImGui::Button("Camera", ImVec2(110.0f, 50.0f)))              switchTabs = 4;
+        ImGui::SameLine();
+        if (ImGui::Button("Contours", ImVec2(110.0f, 50.0f)))            switchTabs = 5;
+        ImGui::Separator();
+        switch (switchTabs) {
+        case 0:
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+            ImGui::Text("Application Info:");
+            ImGui::PopStyleColor();
+            ImGui::NewLine();
+            ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate );
+            ImGui::NewLine();
+            
+            break;
+        case 1:
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+            ImGui::Text("Style Settings:");
+            ImGui::PopStyleColor();
+            ImGui::NewLine();
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+            ImGui::Text(StylesPrettyNames[styleIndex].c_str());
+            ImGui::PopStyleColor();
+            ImGui::SameLine();
+
+            if( ImGui::Button( "Change Style" ) )
+            {
+                styleIndex++;
+                styleIndex = styleIndex % std::size(Styles);
+                Styles[styleIndex]();
+                //Reloading the mesh
+                //Model app(numPatches, generationSeed, consideredOctaves, consideredFrequency, pointsToEvalXY, pointsToEvalXY, displacementFactor);
+                //terrainModel.meshes.clear();
+                //for(int i=0; i<size(app.meshes); i++){
+                        //terrainModel.meshes.push_back(Mesh(app.meshes[i].vertices,app.meshes[i].indices));
+                //}
             }
-        }
-        ImGui::NewLine();
-        ImGui::Separator();
-        ImGui::Text("Terrain Settings:");
-        ImGui::NewLine();
-        ImGui::SliderInt("Squared Number of Bezier Patches", (int*)&numPatches, 15, 50 );
-        ImGui::InputInt("Generation Seed", (int*)&generationSeed);
-        ImGui::SliderInt("Octaves", (int*)&consideredOctaves, 1, 16);
-        ImGui::SliderFloat("Frequency",&consideredFrequency, 1.0f, 30.0f);
-        ImGui::SliderInt("Points evaluated (x-wise and y-wise)", (int*)&pointsToEvalXY, 4, 16);
-        ImGui::SliderFloat("Displacement Factor",&displacementFactor, 0.01f, 0.03f);
-        ImGui::NewLine();
-        if( ImGui::Button( "Regenerate terrain with new parameters" ) )
-        {
-            Model app(numPatches, generationSeed, consideredOctaves, consideredFrequency, pointsToEvalXY, pointsToEvalXY, displacementFactor);
-            terrainModel.meshes.clear();
-            for(int i=0; i<size(app.meshes); i++){
-                    //terrainModel.meshes.push_back(Mesh(app.meshes[i].vertices,app.meshes[i].indices));
+            ImGui::NewLine();
+            ImGui::Separator();
+            break;
+        case 2:
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+            ImGui::Text("Terrain Settings:");
+            ImGui::PopStyleColor();
+            ImGui::NewLine();
+            ImGui::SliderInt("Patches", (int*)&numPatches, 15, 50 );
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Number of Bezier Patches to use in x and y direction to generate the terrain.");
+            ImGui::InputInt("Seed", (int*)&generationSeed);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Overall seed of the terrain generation (used for noise function).");
+            ImGui::SliderInt("Octaves", (int*)&consideredOctaves, 1, 16);
+            ImGui::SliderFloat("Frequency",&consideredFrequency, 1.0f, 30.0f);
+            ImGui::NewLine();
+            if( ImGui::Button( "Regenerate terrain" ) )
+            {
+                //Model app(numPatches, generationSeed, consideredOctaves, consideredFrequency, pointsToEvalXY, pointsToEvalXY, displacementFactor);
+                /*terrainModel.meshes.clear();
+                for(int i=0; i<size(app.meshes); i++){
+                        //terrainModel.meshes.push_back(Mesh(app.meshes[i].vertices,app.meshes[i].indices));
+                }*/
             }
-        }
-        if( ImGui::Button( "Export terrain as OBJ" ) )
-        {
-            //Export OBJ
-        } ImGui::SameLine();
-        if( ImGui::Button( "Export Terrain as BEZ" ) )
-        {
-            //Export BEZ
-        }
-        ImGui::NewLine();
-        ImGui::Separator();
-        ImGui::Text("Shading Settings:");
-        ImGui::NewLine();
-        ImGui::RadioButton("Cel Shading", (int*)&shadingType, 0); ImGui::SameLine();
-        ImGui::RadioButton("Gooch Shading", (int*)&shadingType, 1);
-        ImGui::NewLine();
-        ImGui::ColorEdit3("Warm Color", warmColor);
-        ImGui::ColorEdit3("Cold Color", coldColor);
-        ImGui::ColorEdit3("Background Color", backgroundColor);
-        ImGui::NewLine();
-        ImGui::SliderInt("Cel Size", (int*)&celShadingSize, 1, 20);
-        ImGui::SliderInt("Shininess Factor", (int*)&shininessFactor, 1, 50);
-        ImGui::SliderFloat3("Point Light Position",(float*)&lightPos0, 0.0f, terrainDimension);
-        ImGui::NewLine();
-        ImGui::Separator();
-        ImGui::Text("Contours, Hatches and Textures Settings:");
-        ImGui::ColorEdit3("Stroke Color", strokeColor);
-        ImGui::Checkbox("Enable Contours", &enableContours);
-        ImGui::SliderFloat("Contour Limit",&contourLimit, 1.0f, 10.0f);
-        ImGui::Checkbox("Enable Suggestive Contours", &enableSuggestiveContours);
-        ImGui::SliderFloat("Suggestive Contour Limit",&suggestivecLimit, 1.0f, 10.0f);;
-        ImGui::SliderFloat("Directional Derivative Limit",&directionalDerivativeLimit, 0.001f, 0.300f);
-        ImGui::Checkbox("Enable Hatching", &enableHatching);
-        ImGui::SliderInt("Hatch Type", (int*)&hatchIndex, 0, std::size(hatchTypes)-1);
-        ImGui::Checkbox("Enable Stylized Grass Texture", &enableGrassTexture);
-        ImGui::SliderInt("Grass Type", (int*)&grassIndex, 0, std::size(grassTypes)-1);
-        ImGui::NewLine();
-        //ImGui::RadioButton()
-        ImGui::NewLine();
-        ImGui::Separator();
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Generate the terrain using above settings.");
+            ImGui::SameLine();
+            if( ImGui::Button( "Load Teapot" ) )
+            {
+                //Teapot
+                //TerrainModel terrainModel("../../models/teapot.bez");
+                //terrainModelMatrix = glm::mat4(1.0f);
+                //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)90.0), glm::vec3(1.0f, 0.0f, 0.0f));
+                //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)180.0), glm::vec3(0.0f, 1.0f, 0.0f));
+                //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/4.0f));
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Load Teapot model expressed with bezier surfaces.");
+            ImGui::NewLine();
+            ImGui::Separator();
+            break;
+        case 3:
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+            ImGui::Text("Shading Settings:");
+            ImGui::PopStyleColor();
+            ImGui::NewLine();
+            ImGui::RadioButton("Cel Shading", (int*)&shadingType, 0); ImGui::SameLine();
+            ImGui::RadioButton("Gooch Shading", (int*)&shadingType, 1);
+            ImGui::NewLine();
+            ImGui::ColorEdit3("Warm Color", warmColor);
+            ImGui::ColorEdit3("Cold Color", coldColor);
+            ImGui::ColorEdit3("Background Color", backgroundColor);
+            ImGui::NewLine();
+            ImGui::SliderInt("Cel Size", (int*)&celShadingSize, 1, 20);
+            ImGui::SliderInt("Shininess Factor", (int*)&shininessFactor, 1, 50);
+            ImGui::NewLine();
+            ImGui::SliderFloat3("Point Light Position",(float*)&lightPosition, 0.0f, terrainDimension);
+            if( ImGui::Button( "Move Point Light" ) )
+            {
+            }
+            ImGui::NewLine();
+            ImGui::Separator();
+            break;
+        case 4:
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+            ImGui::Text("Camera Settings:");
+            ImGui::PopStyleColor();
+            ImGui::NewLine();
+            ImGui::SliderFloat3("Camera Position",(float*)&cameraPosition, 0.0f, terrainDimension);
+            ImGui::SliderFloat3("Camera Orientation",(float*)&cameraOrientation, 0.0f, terrainDimension);
+            if( ImGui::Button( "Move Camera" ) )
+            {
+            }
+            ImGui::NewLine();
+            ImGui::Separator();
+            break;
+        case 5:
+            ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+            ImGui::Text("Contours Settings:");
+            ImGui::PopStyleColor();
+            ImGui::NewLine();
+            ImGui::ColorEdit3("Stroke Color", strokeColor);
+            ImGui::Checkbox("Enable Contours", &enableContours);
+            ImGui::SliderFloat("Contour Limit",&contourLimit, 1.0f, 10.0f);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Parameter that enlarge or shrinks the contours.");
+            ImGui::Checkbox("Enable Suggestive Contours", &enableSuggestiveContours);
+            ImGui::SliderFloat("Directional Derivative Limit",&directionalDerivativeLimit, 0.001f, 0.300f);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Parameter that increases or decreases the regions to be considered as suggestive contours.");
+            ImGui::NewLine();
+            ImGui::Separator();
+            break;
+        }     
         ImGui::End();
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -627,50 +664,37 @@ void ReddishStyle(){
     generationSeed = 5400;
     consideredOctaves = 8;
     consideredFrequency = 18.0;
-    pointsToEvalXY = 7;
-    displacementFactor = 0.01;
     shadingType = 0;
     warmColor[0] = 1.0; warmColor[1] = 0.0; warmColor[2] = 0.0;
     coldColor[0] = 0.39; coldColor[1] = 0.91; coldColor[2] = 1.0;
     backgroundColor[0] = 0.78; backgroundColor[1] = 0.44; backgroundColor[2] = 0.0;
     celShadingSize = 9;
     shininessFactor = 22;
-    lightPos0 = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.3 * terrainDimension);
+    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.3 * terrainDimension);
     strokeColor[0] = 0.0; strokeColor[1] = 0.0; strokeColor[2] = 0.0;
     enableContours = true;
     enableSuggestiveContours = true;
-    enableHatching = true;
-    enableGrassTexture = true;
-    hatchIndex = 0;
-    grassIndex = 3;
     contourLimit = 2.1;
-    suggestivecLimit = 3.1;
     directionalDerivativeLimit = 0.02;
 }
 
 void BlackAndWhiteStyle(){
     numPatches = 100;
-    generationSeed = 786;
+    //generationSeed = 786;
+    generationSeed = 45;
     consideredOctaves = 8;
     consideredFrequency = 10.0;
-    pointsToEvalXY = 6;
-    displacementFactor = 0.01;
     shadingType = 0;
     warmColor[0] = 1.0; warmColor[1] = 1.0; warmColor[2] = 1.0;
     coldColor[0] = 0.0; coldColor[1] = 0.0; coldColor[2] = 0.0;
     backgroundColor[0] = 0.6; backgroundColor[1] = 0.6; backgroundColor[2] = 0.6;
     celShadingSize = 20;
     shininessFactor = 16;
-    lightPos0 = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.3 * terrainDimension);
+    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.3 * terrainDimension);
     strokeColor[0] = 0.0; strokeColor[1] = 0.0; strokeColor[2] = 0.0;
     enableContours = true;
     enableSuggestiveContours = true;
-    enableHatching = false;
-    enableGrassTexture = true;
-    hatchIndex = 0;
-    grassIndex = 3;
     contourLimit = 4.3;
-    suggestivecLimit = 5.2;
     directionalDerivativeLimit = 0.1;
 }
 void DirtStyle(){
@@ -678,24 +702,17 @@ void DirtStyle(){
     generationSeed = 786;
     consideredOctaves = 8;
     consideredFrequency = 10.0;
-    pointsToEvalXY = 6;
-    displacementFactor = 0.01;
     shadingType = 1;
     warmColor[0] = 0.91; warmColor[1] = 0.69; warmColor[2] = 0.03;
     coldColor[0] = 0.37; coldColor[1] = 0.28; coldColor[2] = 0.02;
     backgroundColor[0] = 0.0; backgroundColor[1] = 0.71; backgroundColor[2] = 0.95;
     celShadingSize = 20;
     shininessFactor = 3;
-    lightPos0 = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
+    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
     strokeColor[0] = 0.35; strokeColor[1] = 0.24; strokeColor[2] = 0.07;
     enableContours = true;
     enableSuggestiveContours = false;
-    enableHatching = true;
-    enableGrassTexture = true;
-    hatchIndex = 0;
-    grassIndex = 1;
     contourLimit = 6.5;
-    suggestivecLimit = 5.2;
     directionalDerivativeLimit = 0.1;
 }
 
@@ -704,23 +721,16 @@ void GrassStyle(){
     generationSeed = 8967;
     consideredOctaves = 6;
     consideredFrequency = 20.0;
-    pointsToEvalXY = 7;
-    displacementFactor = 0.01;
     shadingType = 0;
     warmColor[0] = 0.40; warmColor[1] = 0.91; warmColor[2] = 0.03;
     coldColor[0] = 0.05; coldColor[1] = 0.37; coldColor[2] = 0.02;
     backgroundColor[0] = 0.0; backgroundColor[1] = 0.42; backgroundColor[2] = 0.45;
     celShadingSize = 20;
     shininessFactor = 12;
-    lightPos0 = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
+    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
     strokeColor[0] = 0.19; strokeColor[1] = 0.17; strokeColor[2] = 0.16;
     enableContours = true;
     enableSuggestiveContours = true;
-    enableHatching = true;
-    enableGrassTexture = true;
-    hatchIndex = 2;
-    grassIndex = 0;
     contourLimit = 6;
-    suggestivecLimit = 2.6;
     directionalDerivativeLimit = 0.08;
 }
