@@ -77,6 +77,7 @@ void apply_camera_movements();
 void LoadTextureCubeSide(string path, string side_image, GLuint side_name);
 GLint LoadTextureCube(string path);
 GLint LoadTexture(const char* path);
+void replaceBy(TerrainModel*& foo, TerrainModel* bar);
 
 // Predefined Styles
 void ReddishStyle();
@@ -114,7 +115,7 @@ GLfloat terrainDimension = 500.0f;
 glm::vec3 lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
 glm::vec3 cameraPosition = glm::vec3(0.0f, 1.3f * terrainDimension,  1.0f * terrainDimension);
 glm::vec3 cameraOrientation = glm::vec3(0.0f, 1.0f,  0.0f);
-GLfloat cameraSpeed = terrainDimension * 0.15f;
+GLfloat cameraSpeed = terrainDimension * 0.15f; 
 // we create a camera. We pass the initial position as a parameter to the constructor. The last boolean tells that we want a camera "anchored" to the ground
 Camera camera(cameraPosition , cameraSpeed, GL_TRUE);
 
@@ -141,6 +142,10 @@ bool enableSuggestiveContours = true;
 GLfloat contourLimit = 1.5;
 //Directional derivative of Radial Curvature Limit
 GLfloat directionalDerivativeLimit = 0.005;
+
+//Stores the Model to be displayed and changed dynamically during run-time
+TerrainModel terrainModel;
+bool showingTerrain = true;
 
 //Styles we can switch in UI
 typedef void (*PreloadedStyleFunction) ();
@@ -216,7 +221,7 @@ int main()
 
     /////////////////// MODELS AND TEXTURES ///////////////////////
     Model cubeModel("../../models/cube.obj");
-    TerrainModel terrainModel(numPatches, generationSeed, consideredOctaves, consideredFrequency);
+    terrainModel = TerrainModel(numPatches, generationSeed, consideredOctaves, consideredFrequency);
     GLuint skyboxTexture = LoadTextureCube("Textures/Skyboxes/nprSky/"); 
     // Projection matrix: FOV angle, aspect ratio, near and far planes
     glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, near, far);
@@ -268,11 +273,18 @@ int main()
         /////////////////// RENDERING OF THE OBJECTS IN THE SCENE ///////////////////////
         illumination_shader.Use();
         // Terrain Rendering
-        terrainModelMatrix = glm::mat4(1.0f);
-        terrainNormalMatrix = glm::mat3(1.0f);
-        terrainModelMatrix = glm::translate(terrainModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
-        terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-        terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension));
+        if(showingTerrain){
+            terrainModelMatrix = glm::mat4(1.0f);
+            terrainNormalMatrix = glm::mat3(1.0f);
+            terrainModelMatrix = glm::translate(terrainModelMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
+            terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension));
+        }else{
+            terrainModelMatrix = glm::mat4(1.0f);
+            terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)90.0), glm::vec3(1.0f, 0.0f, 0.0f));
+            terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)180.0), glm::vec3(0.0f, 1.0f, 0.0f));
+            terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/4.0f));
+        }
         terrainNormalMatrix = glm::inverseTranspose(glm::mat3(view*terrainModelMatrix));
 
         // Uniforms passed to the shaders
@@ -361,15 +373,15 @@ int main()
 
             if( ImGui::Button( "Change Style" ) )
             {
-                styleIndex++;
+                /*styleIndex++;
                 styleIndex = styleIndex % std::size(Styles);
                 Styles[styleIndex]();
                 //Reloading the mesh
-                //Model app(numPatches, generationSeed, consideredOctaves, consideredFrequency, pointsToEvalXY, pointsToEvalXY, displacementFactor);
-                //terrainModel.meshes.clear();
-                //for(int i=0; i<size(app.meshes); i++){
-                        //terrainModel.meshes.push_back(Mesh(app.meshes[i].vertices,app.meshes[i].indices));
-                //}
+                TerrainModel app(numPatches, generationSeed, consideredOctaves, consideredFrequency);
+                terrainModel.meshes.clear();                
+                for(int i=0; i<size(app.meshes); i++){
+                        terrainModel.meshes.push_back(TerrainMesh(app.meshes[i].bsurf));
+                }*/
             }
             ImGui::NewLine();
             ImGui::Separator();
@@ -379,7 +391,7 @@ int main()
             ImGui::Text("Terrain Settings:");
             ImGui::PopStyleColor();
             ImGui::NewLine();
-            ImGui::SliderInt("Patches", (int*)&numPatches, 15, 50 );
+            ImGui::SliderInt("Patches", (int*)&numPatches, 80, 120 );
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Number of Bezier Patches to use in x and y direction to generate the terrain.");
             ImGui::InputInt("Seed", (int*)&generationSeed);
@@ -390,23 +402,21 @@ int main()
             ImGui::NewLine();
             if( ImGui::Button( "Regenerate terrain" ) )
             {
-                //Model app(numPatches, generationSeed, consideredOctaves, consideredFrequency, pointsToEvalXY, pointsToEvalXY, displacementFactor);
-                /*terrainModel.meshes.clear();
-                for(int i=0; i<size(app.meshes); i++){
-                        //terrainModel.meshes.push_back(Mesh(app.meshes[i].vertices,app.meshes[i].indices));
-                }*/
+                showingTerrain = true;
+                camera.Position = cameraPosition;
+                // Reloading the mesh
+                terrainModel = TerrainModel(numPatches, generationSeed, consideredOctaves, consideredFrequency);
             }
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Generate the terrain using above settings.");
             ImGui::SameLine();
             if( ImGui::Button( "Load Teapot" ) )
             {
-                //Teapot
-                //TerrainModel terrainModel("../../models/teapot.bez");
-                //terrainModelMatrix = glm::mat4(1.0f);
-                //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)90.0), glm::vec3(1.0f, 0.0f, 0.0f));
-                //terrainModelMatrix = glm::rotate(terrainModelMatrix, glm::radians((GLfloat)180.0), glm::vec3(0.0f, 1.0f, 0.0f));
-                //terrainModelMatrix = glm::scale(terrainModelMatrix, glm::vec3(terrainDimension/4.0f));
+                showingTerrain = false;
+                camera.Position = glm::vec3(0,650,800);
+                // Loading teapot from disk (expressed with bezier surfaces)
+                terrainModel = TerrainModel("../../models/teapot.bez");
+                
             }
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Load Teapot model expressed with bezier surfaces.");
@@ -428,6 +438,7 @@ int main()
             ImGui::SliderInt("Cel Size", (int*)&celShadingSize, 1, 20);
             ImGui::SliderInt("Shininess Factor", (int*)&shininessFactor, 1, 50);
             ImGui::NewLine();
+            ImGui::Text( "Point Light Current Position x:%f y:%f z:%f", lightPosition.x, lightPosition.y, lightPosition.z );
             ImGui::SliderFloat3("Point Light Position",(float*)&lightPosition, 0.0f, terrainDimension);
             if( ImGui::Button( "Move Point Light" ) )
             {
@@ -440,6 +451,7 @@ int main()
             ImGui::Text("Camera Settings:");
             ImGui::PopStyleColor();
             ImGui::NewLine();
+            ImGui::Text( "Camera Current Position x:%f y:%f z:%f", camera.Position.x, camera.Position.y, camera.Position.z );
             ImGui::SliderFloat3("Camera Position",(float*)&cameraPosition, 0.0f, terrainDimension);
             ImGui::SliderFloat3("Camera Orientation",(float*)&cameraOrientation, 0.0f, terrainDimension);
             if( ImGui::Button( "Move Camera" ) )
@@ -733,4 +745,10 @@ void GrassStyle(){
     enableSuggestiveContours = true;
     contourLimit = 6;
     directionalDerivativeLimit = 0.08;
+}
+
+void replaceBy(TerrainModel*& foo, TerrainModel* bar)
+{
+  delete foo;
+  foo = bar;
 }

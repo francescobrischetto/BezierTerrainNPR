@@ -8,7 +8,7 @@ class TerrainMesh {
 
         std::vector<glm::vec3> m_vertices;
         GLuint VAO, VBO;
-        
+
         TerrainMesh(const BezierSurface &bsurface)
         {
             m_vertices.reserve(16);
@@ -19,6 +19,12 @@ class TerrainMesh {
             }
 
             setupMesh();
+        }
+
+        TerrainMesh(std::vector<glm::vec3> &new_m_vertices)
+        {
+            m_vertices.clear(); 
+            std::copy(std::begin(new_m_vertices), std::end(new_m_vertices), std::begin(m_vertices));
         }
 
         // destructor
