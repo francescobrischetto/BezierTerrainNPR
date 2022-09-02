@@ -6,10 +6,20 @@ layout(quads, equal_spacing, ccw) in;
 out vec3 viewVectorProjectedInTangentPlane;
 out float normalCurvatureInDirectionW;
 out float normalDotViewValue;
+// Normal in view coordinates
+out vec3 viewNormal;
+// Light direction in view coordinates
+out vec3 viewLightDirection;
+// Vector to Camera in view coordinate
+out vec3 vectorToCamera;
 
+
+uniform mat3 normalMatrix;
 uniform mat4 modelMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
+// Point Light Position in world Space
+uniform vec3 pointLightWorldPosition;
 
 
 vec2 calculateCurvaturePairFromFirstSecondFormMatrix(mat2 firstFundamentalFormMatrix, mat2 secondFundamentalFormMatrix){
@@ -80,7 +90,7 @@ vec3 calculateCurvaturePairFromFirstSecondFormMatrix(mat2 firstFundamentalFormMa
 
 
 mat3 ComputeTangentBitangentNormalMatrix(vec3 tangentVector, vec3 bitangentVector, vec3 normalVector){
-    mat3 normalMatrix = transpose(inverse(mat3(modelMatrix)));
+    //mat3 normalMatrix = transpose(inverse(mat3(modelMatrix)));
     vec3 T = normalize(normalMatrix * tangentVector);
     vec3 N = normalize(normalMatrix * normalVector);
     vec3 B = normalize(normalMatrix * bitangentVector);
@@ -191,8 +201,9 @@ void main()
     vec3 principalDirection1 = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix, k1, tangentVector, bitangentVector);
     vec3 principalDirection2 = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix, k2, tangentVector, bitangentVector);
 
+    vec4 mvPosition = viewMatrix * modelMatrix * vertexPosition;
     // Calculation of vector to camera
-	vec3 vectorToCamera = normalize(-(viewMatrix * modelMatrix * vertexPosition).xyz);
+	vectorToCamera = normalize(-mvPosition.xyz);
 
     //normalVector è il versore normale del piano tangente
     //So if you have a vector A and a plane with normal
@@ -209,6 +220,13 @@ void main()
 
 	// compute ndotv
 	normalDotViewValue = max(dot(normalVector,vectorToCamera), 0.0);
+
+    // Light position in view coordinates
+    vec4 lightPos = viewMatrix  * vec4(pointLightWorldPosition, 1.0);
+    // Light vector in view coordinates
+    viewLightDirection = lightPos.xyz - mvPosition.xyz;
+
+    viewNormal = normalize(normalMatrix * normalVector);
 
     //passing position to fragment Shader
     gl_Position = projectionMatrix * viewMatrix * modelMatrix * vertexPosition;

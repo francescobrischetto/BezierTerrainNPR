@@ -139,9 +139,9 @@ GLuint shadingType = 0;
 bool enableContours = true;
 bool enableSuggestiveContours = true;
 // Contour and Suggestive Contour limit parameters 
-GLfloat contourLimit = 1.5;
+GLfloat contourLimit = 0.1;
 //Directional derivative of Radial Curvature Limit
-GLfloat directionalDerivativeLimit = 0.005;
+GLfloat directionalDerivativeLimit = 12;
 
 //Stores the Model to be displayed and changed dynamically during run-time
 TerrainModel terrainModel;
@@ -429,7 +429,8 @@ int main()
             ImGui::PopStyleColor();
             ImGui::NewLine();
             ImGui::RadioButton("Cel Shading", (int*)&shadingType, 0); ImGui::SameLine();
-            ImGui::RadioButton("Gooch Shading", (int*)&shadingType, 1);
+            ImGui::RadioButton("Gooch Shading", (int*)&shadingType, 1);ImGui::SameLine();
+            ImGui::RadioButton("Uniform Color", (int*)&shadingType, 2);
             ImGui::NewLine();
             ImGui::ColorEdit3("Warm Color", warmColor);
             ImGui::ColorEdit3("Cold Color", coldColor);
@@ -467,11 +468,11 @@ int main()
             ImGui::NewLine();
             ImGui::ColorEdit3("Stroke Color", strokeColor);
             ImGui::Checkbox("Enable Contours", &enableContours);
-            ImGui::SliderFloat("Contour Limit",&contourLimit, 1.0f, 10.0f);
+            ImGui::SliderFloat("Contour Limit",&contourLimit, 0.01f, 0.5f);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Parameter that enlarge or shrinks the contours.");
             ImGui::Checkbox("Enable Suggestive Contours", &enableSuggestiveContours);
-            ImGui::SliderFloat("Directional Derivative Limit",&directionalDerivativeLimit, 0.001f, 0.300f);
+            ImGui::SliderFloat("Directional Derivative Limit",&directionalDerivativeLimit, 3, 20);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Parameter that increases or decreases the regions to be considered as suggestive contours.");
             ImGui::NewLine();
@@ -687,7 +688,7 @@ void ReddishStyle(){
     enableContours = true;
     enableSuggestiveContours = true;
     contourLimit = 2.1;
-    directionalDerivativeLimit = 0.02;
+    directionalDerivativeLimit = 12;
 }
 
 void BlackAndWhiteStyle(){
@@ -706,8 +707,8 @@ void BlackAndWhiteStyle(){
     strokeColor[0] = 0.0; strokeColor[1] = 0.0; strokeColor[2] = 0.0;
     enableContours = true;
     enableSuggestiveContours = true;
-    contourLimit = 4.3;
-    directionalDerivativeLimit = 0.1;
+    contourLimit = 0.1;
+    directionalDerivativeLimit = 12;
 }
 void DirtStyle(){
     numPatches = 100;
