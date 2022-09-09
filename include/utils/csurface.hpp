@@ -3,7 +3,7 @@
 #include <vector>
 #include <utils/geometry_util.h>
 
-
+// Class for Continuous Surfaces
 class CSurface
 {
 public:

@@ -41,7 +41,7 @@ std::vector<BezierSurface> gen_TerrainSurfaces(const std::vector<CSurface>& l, c
 std::vector<BezierSurface> gen_Terrain(unsigned int n, std::int32_t seed, std::int32_t octaves, float freq)
 {
 	auto c = CSurface(glm::vec3(-2.0, 0.0, 2.0), glm::vec3(2.0, 0.0, 2.0), glm::vec3(2.0, 0.0, -2.0), glm::vec3(-2.0, 0.0, -2.0));			// XZ PLANE WITH NORMAL (0.0, 1.0, 0.0)
-	auto s = subdiv_CSurface(c, n,n);
+	auto s = subdiv_CSurface(c,n,n);
 
 
 	auto m = gen_TerrainMasks(n, n, seed, octaves, freq);

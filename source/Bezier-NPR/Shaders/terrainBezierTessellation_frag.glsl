@@ -4,9 +4,28 @@
 out vec4 out_Color;
 
 // Inputs from Tessellation Evaluation Shader
-in vec3 viewVectorProjectedInTangentPlane;
-in float normalCurvatureInDirectionW;
+//in vec3 viewVectorProjectedInTangentPlane;
+//in float normalCurvatureInDirectionW;
 in float normalDotViewValue;
+
+// Structure to pass data to Tessellation Evaluation Shader
+in CURVATURE_INFO{
+    vec2 uvCoordinatesInBezierPatch;
+    mat2 firstFundamentalFormMatrix;
+    mat2 secondFundamentalFormMatrix;
+    float k1;
+    float k2;
+    float meanCurvature;
+    float gaussianCurvature;
+    vec3 principalDirection1;
+    vec3 principalDirection2;
+    vec3 viewVectorProjectedInTangentPlane;
+    mat3 TBN;
+    vec2 w;
+    float normalCurvatureInDirectionW;
+} curvature_informations;
+
+
 
 // Normal in view coordinates
 in vec3 viewNormal;
@@ -29,30 +48,6 @@ uniform int shininessFactor;
 uniform int shadingType;
 uniform bool enableContours;
 uniform bool enableSuggestiveContours;
-
-
-/*
-void main()
-{
-
-    vec4 color = vec4(0.6,0.6,0.6, 1.0);
-    float contour_limit = (pow(normalDotViewValue, 2.0));
-    // Derivate of normal Curvature in direction W
-    float derivateNormalCurvatureInDirectionW = viewVectorProjectedInTangentPlane.x * dFdx(normalCurvatureInDirectionW) + viewVectorProjectedInTangentPlane.y * dFdy(normalCurvatureInDirectionW);
-    if(contour_limit<c_limit)
-      {FragColor = vec4(min(color.xyz, vec3(contour_limit, contour_limit, contour_limit)),1.0);}
-    else{
-      if(normalCurvatureInDirectionW >= -0.001 && normalCurvatureInDirectionW < 0.001 && derivateNormalCurvatureInDirectionW>0){
-      //if(normalCurvatureInDirectionW == 0 && derivateNormalCurvatureInDirectionW>0){
-        FragColor = mix(vec4(1.0), vec4(0.0),0.5);
-        //FragColor = vec4(0.0,0.0,0.0,1.0);
-      }else{
-        //FragColor = mix(vec4(0.15,0.15,0.15,1.0),color,clamp((abs(normalCurvatureInDirectionW))*500,0,1));
-        FragColor = vec4(1.0,1.0,1.0,1.0);
-      }
-    }
-
-}*/
 
 
 ////////////////////////////////////////////////////////////////////
@@ -123,10 +118,10 @@ vec3 Contours()
   float cLimitCalculated = (pow(normalDotViewValue, 2.0));
   float dd = directionalDerivativeLimit * 0.0001;
   // Derivate of normal Curvature in direction W
-  float derivateNormalCurvatureInDirectionW = viewVectorProjectedInTangentPlane.x * dFdx(normalCurvatureInDirectionW) + viewVectorProjectedInTangentPlane.y * dFdy(normalCurvatureInDirectionW);
+  float derivateNormalCurvatureInDirectionW = curvature_informations.viewVectorProjectedInTangentPlane.x * dFdx(curvature_informations.normalCurvatureInDirectionW) + curvature_informations.viewVectorProjectedInTangentPlane.y * dFdy(curvature_informations.normalCurvatureInDirectionW);
   if(enableContours && cLimitCalculated<contourLimit)
     color = strokeColor;
-  else if( enableSuggestiveContours && normalCurvatureInDirectionW >= -dd && normalCurvatureInDirectionW < dd && derivateNormalCurvatureInDirectionW>0 ){
+  else if( enableSuggestiveContours && curvature_informations.normalCurvatureInDirectionW >= -dd && curvature_informations.normalCurvatureInDirectionW < dd && derivateNormalCurvatureInDirectionW>0 ){
       color = mix(vec3(1.0), strokeColor, 0.75);
   }
   return color;

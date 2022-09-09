@@ -114,11 +114,12 @@ GLfloat terrainDimension = 500.0f;
 // position of a pointlight
 glm::vec3 lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
 glm::vec3 cameraPosition = glm::vec3(0.0f, 1.3f * terrainDimension,  1.0f * terrainDimension);
-glm::vec3 cameraOrientation = glm::vec3(0.0f, 1.0f,  0.0f);
 GLfloat cameraSpeed = terrainDimension * 0.15f; 
 // we create a camera. We pass the initial position as a parameter to the constructor. The last boolean tells that we want a camera "anchored" to the ground
 Camera camera(cameraPosition , cameraSpeed, GL_TRUE);
-
+glm::vec3 cameraOrientation = camera.Front;
+glm::vec3 cameraInitialPosition = cameraPosition;
+glm::vec3 cameraInitialOrientation = cameraOrientation;
 
 //Terrain Generator Parameters
 GLuint numPatches = 100;
@@ -153,14 +154,12 @@ const PreloadedStyleFunction Styles[] =
     {
         BlackAndWhiteStyle, 
         ReddishStyle, 
-        DirtStyle,
         GrassStyle
     };
 const string StylesPrettyNames[] = 
     {
         "Black and White Style", 
         "Reddish Style", 
-        "Dirt Style",
         "Grass Style"
     };    
 GLuint styleIndex = 0;
@@ -181,7 +180,7 @@ int main()
   // we set if the window is resizable
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
   // we create the application's window
-    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "MyProject", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "Non Photorealistic Rendering - Thesis", nullptr, nullptr);
     if (!window)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -217,7 +216,7 @@ int main()
     //Shader illumination_shader = Shader("Shaders/basic.vert", "Shaders/basic.frag");
     Shader illumination_shader = Shader("Shaders/terrainBezierTessellation_vert.glsl", "Shaders/terrainBezierTessellation_frag.glsl",nullptr,"Shaders/terrainBezierTessellation_tcs.glsl","Shaders/terrainBezierTessellation_tes.glsl");
     //We apply the first style
-    //TODO:Remove Styles[styleIndex]();
+    Styles[styleIndex]();
 
     /////////////////// MODELS AND TEXTURES ///////////////////////
     Model cubeModel("../../models/cube.obj");
@@ -373,15 +372,11 @@ int main()
 
             if( ImGui::Button( "Change Style" ) )
             {
-                /*styleIndex++;
+                styleIndex++;
                 styleIndex = styleIndex % std::size(Styles);
                 Styles[styleIndex]();
-                //Reloading the mesh
-                TerrainModel app(numPatches, generationSeed, consideredOctaves, consideredFrequency);
-                terrainModel.meshes.clear();                
-                for(int i=0; i<size(app.meshes); i++){
-                        terrainModel.meshes.push_back(TerrainMesh(app.meshes[i].bsurf));
-                }*/
+                showingTerrain = true;
+                terrainModel = TerrainModel(numPatches, generationSeed, consideredOctaves, consideredFrequency);
             }
             ImGui::NewLine();
             ImGui::Separator();
@@ -398,7 +393,7 @@ int main()
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Overall seed of the terrain generation (used for noise function).");
             ImGui::SliderInt("Octaves", (int*)&consideredOctaves, 1, 16);
-            ImGui::SliderFloat("Frequency",&consideredFrequency, 1.0f, 30.0f);
+            ImGui::SliderFloat("Frequency",&consideredFrequency, 1.0f, 12.0f);
             ImGui::NewLine();
             if( ImGui::Button( "Regenerate terrain" ) )
             {
@@ -413,7 +408,8 @@ int main()
             if( ImGui::Button( "Load Teapot" ) )
             {
                 showingTerrain = false;
-                camera.Position = glm::vec3(0,650,800);
+                Styles[0]();
+                camera.Position = glm::vec3(0,350,770);
                 // Loading teapot from disk (expressed with bezier surfaces)
                 terrainModel = TerrainModel("../../models/teapot.bez");
                 
@@ -441,9 +437,6 @@ int main()
             ImGui::NewLine();
             ImGui::Text( "Point Light Current Position x:%f y:%f z:%f", lightPosition.x, lightPosition.y, lightPosition.z );
             ImGui::SliderFloat3("Point Light Position",(float*)&lightPosition, 0.0f, terrainDimension);
-            if( ImGui::Button( "Move Point Light" ) )
-            {
-            }
             ImGui::NewLine();
             ImGui::Separator();
             break;
@@ -454,9 +447,11 @@ int main()
             ImGui::NewLine();
             ImGui::Text( "Camera Current Position x:%f y:%f z:%f", camera.Position.x, camera.Position.y, camera.Position.z );
             ImGui::SliderFloat3("Camera Position",(float*)&cameraPosition, 0.0f, terrainDimension);
-            ImGui::SliderFloat3("Camera Orientation",(float*)&cameraOrientation, 0.0f, terrainDimension);
+            ImGui::SliderFloat3("Camera Orientation",(float*)&cameraOrientation, -1.0f, 1.0f);
             if( ImGui::Button( "Move Camera" ) )
             {
+                camera.Position = cameraPosition;
+                camera.Front = cameraOrientation;
             }
             ImGui::NewLine();
             ImGui::Separator();
@@ -676,76 +671,63 @@ void ReddishStyle(){
     numPatches = 100;
     generationSeed = 5400;
     consideredOctaves = 8;
-    consideredFrequency = 18.0;
+    consideredFrequency = 4.0;
     shadingType = 0;
     warmColor[0] = 1.0; warmColor[1] = 0.0; warmColor[2] = 0.0;
     coldColor[0] = 0.39; coldColor[1] = 0.91; coldColor[2] = 1.0;
-    backgroundColor[0] = 0.78; backgroundColor[1] = 0.44; backgroundColor[2] = 0.0;
+    backgroundColor[0] = 1; backgroundColor[1] = 0.4; backgroundColor[2] = 0.2;
     celShadingSize = 9;
     shininessFactor = 22;
-    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.3 * terrainDimension);
     strokeColor[0] = 0.0; strokeColor[1] = 0.0; strokeColor[2] = 0.0;
     enableContours = true;
     enableSuggestiveContours = true;
-    contourLimit = 2.1;
+    contourLimit = 0.3;
     directionalDerivativeLimit = 12;
+    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
+    camera.Position = cameraInitialPosition;
+    camera.Front = cameraInitialOrientation;
 }
 
 void BlackAndWhiteStyle(){
     numPatches = 100;
-    //generationSeed = 786;
     generationSeed = 45;
     consideredOctaves = 8;
-    consideredFrequency = 10.0;
+    consideredFrequency = 3.0;
     shadingType = 0;
     warmColor[0] = 1.0; warmColor[1] = 1.0; warmColor[2] = 1.0;
     coldColor[0] = 0.0; coldColor[1] = 0.0; coldColor[2] = 0.0;
     backgroundColor[0] = 0.6; backgroundColor[1] = 0.6; backgroundColor[2] = 0.6;
     celShadingSize = 20;
     shininessFactor = 16;
-    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.3 * terrainDimension);
     strokeColor[0] = 0.0; strokeColor[1] = 0.0; strokeColor[2] = 0.0;
     enableContours = true;
     enableSuggestiveContours = true;
     contourLimit = 0.1;
     directionalDerivativeLimit = 12;
-}
-void DirtStyle(){
-    numPatches = 100;
-    generationSeed = 786;
-    consideredOctaves = 8;
-    consideredFrequency = 10.0;
-    shadingType = 1;
-    warmColor[0] = 0.91; warmColor[1] = 0.69; warmColor[2] = 0.03;
-    coldColor[0] = 0.37; coldColor[1] = 0.28; coldColor[2] = 0.02;
-    backgroundColor[0] = 0.0; backgroundColor[1] = 0.71; backgroundColor[2] = 0.95;
-    celShadingSize = 20;
-    shininessFactor = 3;
     lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
-    strokeColor[0] = 0.35; strokeColor[1] = 0.24; strokeColor[2] = 0.07;
-    enableContours = true;
-    enableSuggestiveContours = false;
-    contourLimit = 6.5;
-    directionalDerivativeLimit = 0.1;
+    camera.Position = cameraInitialPosition;
+    camera.Front = cameraInitialOrientation;
 }
 
 void GrassStyle(){
     numPatches = 100;
     generationSeed = 8967;
     consideredOctaves = 6;
-    consideredFrequency = 20.0;
+    consideredFrequency = 2.0;
     shadingType = 0;
     warmColor[0] = 0.40; warmColor[1] = 0.91; warmColor[2] = 0.03;
     coldColor[0] = 0.05; coldColor[1] = 0.37; coldColor[2] = 0.02;
     backgroundColor[0] = 0.0; backgroundColor[1] = 0.42; backgroundColor[2] = 0.45;
     celShadingSize = 20;
     shininessFactor = 12;
-    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
     strokeColor[0] = 0.19; strokeColor[1] = 0.17; strokeColor[2] = 0.16;
     enableContours = true;
     enableSuggestiveContours = true;
-    contourLimit = 6;
-    directionalDerivativeLimit = 0.08;
+    contourLimit = 0.05;
+    directionalDerivativeLimit = 8;
+    lightPosition = glm::vec3(0.5 * terrainDimension, 2 * terrainDimension, 0.5 * terrainDimension);
+    camera.Position = cameraInitialPosition;
+    camera.Front = cameraInitialOrientation;
 }
 
 void replaceBy(TerrainModel*& foo, TerrainModel* bar)

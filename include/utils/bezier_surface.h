@@ -14,10 +14,10 @@ typedef std::array<int, 2> ControlVertexIndex;
 
 //Methods definition
 glm::vec3 eval_BezierCurve(const glm::vec3 &p0, const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, float t) noexcept;
-glm::vec3 eval_BezierSurface(const BezierSurface& s, float u, float v);		// implicit equation for a Bezier Surface
+//glm::vec3 eval_BezierSurface(const BezierSurface& s, float u, float v);		// implicit equation for a Bezier Surface
 BezierSurface gen_BezierSurfaceMask(float outer_h, float inner_h) noexcept;
 glm::vec3 calc_rand_uv(unsigned int i, unsigned int j, float h);
-std::vector<Mesh> evalBezierList(std::vector<BezierSurface> v,std::int32_t seed, std::int32_t octaves, float freq, const int t_points, const int s_points, float disp_factor);
+//std::vector<Mesh> evalBezierList(std::vector<BezierSurface> v,std::int32_t seed, std::int32_t octaves, float freq, const int t_points, const int s_points, float disp_factor);
 ControlVertexIndex get_BSurfaceCVI(int e_i, int edge_offset, int i) noexcept;
 
 //Methods implementation
@@ -30,14 +30,14 @@ glm::vec3 eval_BezierCurve(const glm::vec3& p0, const glm::vec3& p1, const glm::
 	return p0 * b0 + p1 * b1 + p2 * b2 + p3 * b3;
 }
 
-glm::vec3 eval_BezierSurface(const BezierSurface& s, float u, float v)
+/*glm::vec3 eval_BezierSurface(const BezierSurface& s, float u, float v)
 {
 	ControlVertices pu;
 	for (auto i = 0; i != 4; i++)
 		pu[i] = eval_BezierCurve(s[i][0], s[i][1], s[i][2], s[i][3], u);
 
 	return eval_BezierCurve(pu[0], pu[1], pu[2], pu[3], v);
-}
+}*/
 
 glm::vec3 calc_rand_uv(unsigned int i, unsigned int j, float h)
 {
@@ -96,7 +96,7 @@ ControlVertexIndex get_BSurfaceCVI(int e_i, int edge_offset, int i) noexcept
 }
 
 //Evaluate list of bezier surfaces into list of meshes, computing curvature and other properties using Trimesh2
-std::vector<Mesh> evalBezierList(std::vector<BezierSurface> surfaces, std::int32_t seed, std::int32_t octaves, float freq, const int t_points, const int s_points, float disp_factor){
+/*std::vector<Mesh> evalBezierList(std::vector<BezierSurface> surfaces, std::int32_t seed, std::int32_t octaves, float freq, const int t_points, const int s_points, float disp_factor){
 	const siv::PerlinNoise perlin(seed);
 	vector<Mesh> meshes;
 	for(auto& bsurface : surfaces){
@@ -267,4 +267,4 @@ std::vector<Mesh> evalBezierList(std::vector<BezierSurface> surfaces, std::int32
 		meshes.emplace_back(Mesh(vertices, indices));
 	}
 	return meshes;
-}
+}*/

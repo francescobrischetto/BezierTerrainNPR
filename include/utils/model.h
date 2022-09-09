@@ -75,14 +75,14 @@ public:
         this->loadModel(path);
     }
 
-    Model(unsigned int n, std::int32_t seed, std::int32_t octaves, float freq, const unsigned int t_points, const unsigned int s_points, float disp_factor)
+    /*Model(unsigned int n, std::int32_t seed, std::int32_t octaves, float freq, const unsigned int t_points, const unsigned int s_points, float disp_factor)
     {
         vector<BezierSurface> terrain_surfaces = gen_Terrain(n, seed, octaves, freq);
         vector<Mesh> meshes = evalBezierList(terrain_surfaces,seed,octaves,freq, t_points, s_points, disp_factor);
         for(auto& mesh : meshes){
             this->meshes.emplace_back(Mesh(mesh.vertices,mesh.indices));
         }
-    }
+    }*/
 
 
     //////////////////////////////////////////

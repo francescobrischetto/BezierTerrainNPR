@@ -3,8 +3,8 @@
 // Define the type of input patch, a grid of 16 control points
 layout(quads, equal_spacing, ccw) in;
 
-out vec3 viewVectorProjectedInTangentPlane;
-out float normalCurvatureInDirectionW;
+//out vec3 viewVectorProjectedInTangentPlane;
+//out float normalCurvatureInDirectionW;
 out float normalDotViewValue;
 // Normal in view coordinates
 out vec3 viewNormal;
@@ -12,6 +12,24 @@ out vec3 viewNormal;
 out vec3 viewLightDirection;
 // Vector to Camera in view coordinate
 out vec3 vectorToCamera;
+
+// Structure to pass data to Tessellation Evaluation Shader
+out CURVATURE_INFO{
+    vec2 uvCoordinatesInBezierPatch;
+    mat2 firstFundamentalFormMatrix;
+    mat2 secondFundamentalFormMatrix;
+    float k1;
+    float k2;
+    float meanCurvature;
+    float gaussianCurvature;
+    vec3 principalDirection1;
+    vec3 principalDirection2;
+    vec3 viewVectorProjectedInTangentPlane;
+    mat3 TBN;
+    vec2 w;
+    float normalCurvatureInDirectionW;
+} curvature_informations;
+
 
 
 uniform mat3 normalMatrix;
@@ -118,7 +136,7 @@ void main()
     // We get the U,V coords
     float u = gl_TessCoord.x;
     float v = gl_TessCoord.y;
-    vec2 uvCoordinatesInBezierPatch = vec2(u, v);
+    curvature_informations.uvCoordinatesInBezierPatch = vec2(u, v);
 
     // U - weights for bezier surface                           // V - weights for bezier surface
     float bu0 = (1-u) * (1-u) * (1-u);                          float bv0 = (1-v) * (1-v) * (1-v);
@@ -178,28 +196,28 @@ void main()
     float E = dot( tangentVector,tangentVector );
     float F = dot( tangentVector,bitangentVector );
     float G = dot( bitangentVector,bitangentVector );
-    mat2 firstFundamentalFormMatrix = mat2(E, F, F, G);
+    curvature_informations.firstFundamentalFormMatrix = mat2(E, F, F, G);
 
     // Second Fundamental Form Matrix
     float L = dot(normalVector,secondPartialDerivativeUU);
     float M = dot(normalVector,secondPartialDerivativeUV);
     float N = dot(normalVector,secondPartialDerivativeVV);
-    mat2 secondFundamentalFormMatrix = mat2(L, M, M, N);
+    curvature_informations.secondFundamentalFormMatrix = mat2(L, M, M, N);
 
     // Calculation of principal curvatures, k1 and k2, values given First and Second Fundamental Form Matrices
-    vec2 curvatureValues = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix);
-    float k1 = curvatureValues.x;       float k2 = curvatureValues.y;
+    vec2 curvatureValues = calculateCurvaturePairFromFirstSecondFormMatrix(curvature_informations.firstFundamentalFormMatrix, curvature_informations.secondFundamentalFormMatrix);
+    curvature_informations.k1 = curvatureValues.x;       curvature_informations.k2 = curvatureValues.y;
     // Calculation of Mean and Gaussian Curvature based on principal curvatures, k1 and k2, previously calculated
 
     // Mean Curvature Computation        { Can be also computed directly as: ( E*N - 2*F*M + G*L ) / ( 2*( E*G - F*F ) ) }
-    float meanCurvature = k1 * k2 / 2;
+    curvature_informations.meanCurvature = curvature_informations.k1 * curvature_informations.k2 / 2;
 
     // Gaussian Curvature Computation    { Can be also computed directly as: ( L*N - M*M ) / ( E*G - F*F ) }
-    float gaussianCurvature = k1 * k2;
+    curvature_informations.gaussianCurvature = curvature_informations.k1 * curvature_informations.k2;
 
     // Calculation of principal curvatures, pdir1 and pdir2, directions in 3D space, given EigenValue, Tangent vector, Bitangent vector, First and Second Fundamental Form Matrices
-    vec3 principalDirection1 = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix, k1, tangentVector, bitangentVector);
-    vec3 principalDirection2 = calculateCurvaturePairFromFirstSecondFormMatrix(firstFundamentalFormMatrix, secondFundamentalFormMatrix, k2, tangentVector, bitangentVector);
+    curvature_informations.principalDirection1 = calculateCurvaturePairFromFirstSecondFormMatrix(curvature_informations.firstFundamentalFormMatrix, curvature_informations.secondFundamentalFormMatrix, curvature_informations.k1, tangentVector, bitangentVector);
+    curvature_informations.principalDirection2 = calculateCurvaturePairFromFirstSecondFormMatrix(curvature_informations.firstFundamentalFormMatrix, curvature_informations.secondFundamentalFormMatrix, curvature_informations.k2, tangentVector, bitangentVector);
 
     vec4 mvPosition = viewMatrix * modelMatrix * vertexPosition;
     // Calculation of vector to camera
@@ -209,14 +227,14 @@ void main()
     //So if you have a vector A and a plane with normal
     //N, the vector that is resulted by projecting A on
     //the plane will be B = A - (A.dot.N)N
-    viewVectorProjectedInTangentPlane = vectorToCamera - normalVector * dot(vectorToCamera, normalVector);
+    curvature_informations.viewVectorProjectedInTangentPlane = vectorToCamera - normalVector * dot(vectorToCamera, normalVector);
     //Now I need w to be expressed in tangent coordinate system
-    mat3 TBN = ComputeTangentBitangentNormalMatrix(tangentVector, bitangentVector, normalVector);
+    curvature_informations.TBN = ComputeTangentBitangentNormalMatrix(tangentVector, bitangentVector, normalVector);
     //  view Vector Projected in Tangent Plane expressed in Tangent Coordinate System
-    vec2 w = (TBN * viewVectorProjectedInTangentPlane).xy;
+    curvature_informations.w = (curvature_informations.TBN * curvature_informations.viewVectorProjectedInTangentPlane).xy;
 
     //The normal curvature of a surface S at a point p measures its curvature in a specific direction x in the tangent plane
-    normalCurvatureInDirectionW = ( dot(( secondFundamentalFormMatrix * w ), w)/dot(w,w) );
+    curvature_informations.normalCurvatureInDirectionW = ( dot(( curvature_informations.secondFundamentalFormMatrix * curvature_informations.w ), curvature_informations.w)/dot(curvature_informations.w,curvature_informations.w) );
 
 	// compute ndotv
 	normalDotViewValue = max(dot(normalVector,vectorToCamera), 0.0);
