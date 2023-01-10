@@ -2,14 +2,6 @@
 Camera class
 - creation of a reference system for the camera
 - management of camera movement (FPS-style) using WASD keys and mouse movement
-
-N.B.) adaptation of https://github.com/JoeyDeVries/LearnOpenGL/blob/master/includes/learnopengl/camera.h
-
-author: Davide Gadia
-
-Real-time Graphics Programming - a.a. 2020/2021
-Master degree in Computer Science
-Universita' degli Studi di Milano
 */
 
 #pragma once

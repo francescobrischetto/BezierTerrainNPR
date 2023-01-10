@@ -1,3 +1,7 @@
+/*
+Continuous Surface Class:
+- class to define continuous surfaces (specialized lately in Bezier Surfaces)
+*/
 #pragma once
 #include <glm/glm.hpp>
 #include <vector>

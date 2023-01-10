@@ -3,8 +3,6 @@
 // Define the type of input patch, a grid of 16 control points
 layout(quads, equal_spacing, ccw) in;
 
-//out vec3 viewVectorProjectedInTangentPlane;
-//out float normalCurvatureInDirectionW;
 out float normalDotViewValue;
 // Normal in view coordinates
 out vec3 viewNormal;
@@ -65,9 +63,6 @@ vec2 calculateCurvaturePairFromFirstSecondFormMatrix(mat2 firstFundamentalFormMa
 
     vec2 curvatureValues = vec2(k1,k2);
     return curvatureValues;
-
-    //UNUSED STUFFS: float detFirstTraspose = 1.0/(EE*GG - FF*FF);
-    //mat2 mulMatrix = detFirstTraspose * secondForm * firstTraspose;
 }
 
 // Inverse Power Iteration method to estimate eigenvector from eigenvalue
@@ -86,7 +81,6 @@ vec2 estimateEigenVector(mat2 matrix, float eigenValue){
 		tempMatrix = mat2(tempMatrix[1][1], -tempMatrix[0][1], -tempMatrix[1][0], tempMatrix[0][0] );
 		v = tempMatrix * v;
 		v = normalize(v);
-		
 		// Increment iteration count.
 		count++;
 
@@ -114,7 +108,6 @@ mat3 ComputeTangentBitangentNormalMatrix(vec3 tangentVector, vec3 bitangentVecto
     vec3 B = normalize(normalMatrix * bitangentVector);
     T = normalize(T - dot(T, N) * B);
     B = cross(N, T);
-
     //  TBN Matrix
     mat3 TBN = inverse(mat3(T, B, N));
     return TBN;
@@ -210,7 +203,7 @@ void main()
     // Calculation of Mean and Gaussian Curvature based on principal curvatures, k1 and k2, previously calculated
 
     // Mean Curvature Computation        { Can be also computed directly as: ( E*N - 2*F*M + G*L ) / ( 2*( E*G - F*F ) ) }
-    curvature_informations.meanCurvature = curvature_informations.k1 * curvature_informations.k2 / 2;
+    curvature_informations.meanCurvature = curvature_informations.k1 + curvature_informations.k2 / 2;
 
     // Gaussian Curvature Computation    { Can be also computed directly as: ( L*N - M*M ) / ( E*G - F*F ) }
     curvature_informations.gaussianCurvature = curvature_informations.k1 * curvature_informations.k2;
@@ -224,14 +217,17 @@ void main()
 	vectorToCamera = normalize(-mvPosition.xyz);
 
     //normalVector è il versore normale del piano tangente
-    //So if you have a vector A and a plane with normal
-    //N, the vector that is resulted by projecting A on
-    //the plane will be B = A - (A.dot.N)N
+    //So if you have a vector A and a plane with normal N, the vector that is resulted by projecting A on the plane will be B = A - (A.dot.N)N
     curvature_informations.viewVectorProjectedInTangentPlane = vectorToCamera - normalVector * dot(vectorToCamera, normalVector);
     //Now I need w to be expressed in tangent coordinate system
     curvature_informations.TBN = ComputeTangentBitangentNormalMatrix(tangentVector, bitangentVector, normalVector);
     //  view Vector Projected in Tangent Plane expressed in Tangent Coordinate System
     curvature_informations.w = (curvature_informations.TBN * curvature_informations.viewVectorProjectedInTangentPlane).xy;
+
+    // Inverse of the first Fundamental Form Matrix
+    mat2 firstTraspose = inverse(curvature_informations.firstFundamentalFormMatrix); 
+    // 2x2 multiplication matrix between second form and inverse of first form
+    mat2 weingartenMatrix = curvature_informations.secondFundamentalFormMatrix * firstTraspose;
 
     //The normal curvature of a surface S at a point p measures its curvature in a specific direction x in the tangent plane
     curvature_informations.normalCurvatureInDirectionW = ( dot(( curvature_informations.secondFundamentalFormMatrix * curvature_informations.w ), curvature_informations.w)/dot(curvature_informations.w,curvature_informations.w) );
@@ -248,8 +244,5 @@ void main()
 
     //passing position to fragment Shader
     gl_Position = projectionMatrix * viewMatrix * modelMatrix * vertexPosition;
-
-
-
 }
 

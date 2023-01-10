@@ -1,10 +1,14 @@
+/*
+Geometry Util Methods:
+- some methods to help calculating point on line, normal of triangle, etc.
+*/
+
 #pragma once
 #include <array>
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-//Methods definition
 glm::vec3 calc_triangle_normal(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c);
 glm::vec3 calc_point_on_line(const glm::vec3& p0, const glm::vec3& p1, float t);
 glm::vec3 geometric_centre(const std::vector<glm::vec3>& v);

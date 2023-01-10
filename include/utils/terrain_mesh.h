@@ -1,5 +1,8 @@
+/*
+Bezier Surfaces Mesh class
+- Extension of the classic mesh class that supports terrain generation and Bezier Surfaces defined meshes
+*/
 #pragma once
-
 #include <utils/bezier_surface.h>
 
 
@@ -51,14 +54,10 @@ class TerrainMesh {
             // create buffers/arrays
             glGenVertexArrays(1, &VAO);
             glGenBuffers(1, &VBO);
-
-
             glBindVertexArray(VAO);
             // load data into vertex buffers
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, m_vertices.size() * sizeof(glm::vec3), &m_vertices[0], GL_STATIC_DRAW);
-
-
             glEnableVertexAttribArray(0);
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
             glBindVertexArray(0);

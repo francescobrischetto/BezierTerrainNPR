@@ -1,9 +1,9 @@
+/*
+CSurfaces subdivision method into step values
+*/
 #pragma once
 #include <utils/csurface.hpp>
 
-//Methods definition
-std::vector<CSurface> subdiv_CSurface(const CSurface& c, unsigned int w, unsigned int l);  // subdivide a csurface by plugging step values into its implicit representation
-//Methods implementation
 std::vector<CSurface> subdiv_CSurface(const CSurface& c, unsigned int w, unsigned int l)
 {
 	float w_div = 1.0f / (float)w;

@@ -4,8 +4,6 @@
 out vec4 out_Color;
 
 // Inputs from Tessellation Evaluation Shader
-//in vec3 viewVectorProjectedInTangentPlane;
-//in float normalCurvatureInDirectionW;
 in float normalDotViewValue;
 
 // Structure to pass data to Tessellation Evaluation Shader
@@ -24,8 +22,6 @@ in CURVATURE_INFO{
     vec2 w;
     float normalCurvatureInDirectionW;
 } curvature_informations;
-
-
 
 // Normal in view coordinates
 in vec3 viewNormal;
@@ -69,7 +65,7 @@ float lightIntensity()
   return clamp(  diffuseWeight + SpecularWeight, ambientWeight, 1 );
 }
 
-//
+//Used for celShading to extract a level of light from a value
 float GetLevelFromValue( float value, int levels )  
 {
     int app = int( value * 100 );
@@ -77,7 +73,7 @@ float GetLevelFromValue( float value, int levels )
 }
 
 
-vec3 CelShading( )
+vec3 CelShading()
 {
   float curretFragLight = lightIntensity();
   float fragLightAfterLevelSuddivision = GetLevelFromValue( curretFragLight, celShadingSize );
@@ -85,7 +81,6 @@ vec3 CelShading( )
   vec3 L = normalize(viewLightDirection.xyz);
   float DiffuseFactor = dot(L, N);
   DiffuseFactor = floor(DiffuseFactor * celShadingSize) * (1.0f/celShadingSize);
-  //return mix( coldColor, warmColor, DiffuseFactor );
   return mix( coldColor, warmColor, fragLightAfterLevelSuddivision );
 }
 
@@ -117,19 +112,28 @@ vec3 Contours()
   vec3 color = vec3(1.0, 1.0, 1.0);
   float cLimitCalculated = (pow(normalDotViewValue, 2.0));
   float dd = directionalDerivativeLimit * 0.0001;
-  // Derivate of normal Curvature in direction W
-  float derivateNormalCurvatureInDirectionW = curvature_informations.viewVectorProjectedInTangentPlane.x * dFdx(curvature_informations.normalCurvatureInDirectionW) + curvature_informations.viewVectorProjectedInTangentPlane.y * dFdy(curvature_informations.normalCurvatureInDirectionW);
+  // Derivate of normal Curvature in direction W, DwKr
+  // It is approximated as composition of dFdx and dFdy
+  // DwKr = w.x * dFdx + w.y * dFdy
+  float derivateNormalCurvatureInDirectionW = 
+      curvature_informations.viewVectorProjectedInTangentPlane.x * dFdx(curvature_informations.normalCurvatureInDirectionW) 
+    + curvature_informations.viewVectorProjectedInTangentPlane.y * dFdy(curvature_informations.normalCurvatureInDirectionW);
+  // Contours are those points where N dot V = 0
+  // contourLimits is used to stretch the definition interval so that contours are those 
+  // points where 0 <= N dot V <= contourLimits
   if(enableContours && cLimitCalculated<contourLimit)
     color = strokeColor;
-  else if( enableSuggestiveContours && curvature_informations.normalCurvatureInDirectionW >= -dd && curvature_informations.normalCurvatureInDirectionW < dd && derivateNormalCurvatureInDirectionW>0 ){
+  // Suggestive Contours are those points where Kr = 0 and DwKr > 0
+  // directionalDerivateLimit (dd) is used to stretch the definition interval so
+  // that Suggestive Contours are those points where -dd <= Kr <= dd && DwKr > 0
+  else if( enableSuggestiveContours 
+    && curvature_informations.normalCurvatureInDirectionW >= -dd 
+    && curvature_informations.normalCurvatureInDirectionW < dd 
+    && derivateNormalCurvatureInDirectionW>0 ){
       color = mix(vec3(1.0), strokeColor, 0.75);
   }
   return color;
-
-    
 }
-
-
 
 //////////////////////////////////////////
 // main

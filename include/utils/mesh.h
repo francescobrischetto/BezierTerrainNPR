@@ -1,27 +1,11 @@
 /*
-Mesh class - v1
+Mesh class
 - the class allocates and initializes VBO, VAO, and EBO buffers, and it sets as OpenGL must consider the data in the buffers
 
 VBO : Vertex Buffer Object - memory allocated on GPU memory to store the mesh data (vertices and their attributes, like e.g. normals, etc)
 EBO : Element Buffer Object - a buffer maintaining the indices of vertices composing the mesh faces
-VAO : Vertex Array Object - a buffer that helps to "manage" VBO and its inner structure. It stores pointers to the different vertex attributes stored in the VBO. When we need to render an object, we can just bind the corresponding VAO, and all the needed calls to set up the binding between vertex attributes and memory positions in the VBO are automatically configured.
-See https://learnopengl.com/#!Getting-started/Hello-Triangle for details.
-
-N.B. 1)
-Model and Mesh classes follow RAII principles (https://en.cppreference.com/w/cpp/language/raii).
-Mesh class is in charge of releasing the allocated GPU buffers, and
-it is a "move-only" class. A move-only class ensures that you always have a 1:1 relationship between the total number of resources being created and the total number of actual instantiations occurring.
-Moreover, we want to have, CPU-side, a Mesh instance, with associated GPU resources, which is responsible of their life cycle (RAII), and which could be "moved" in memory keeping the ownership of its resources
-
-N.B. 2) no texturing in this version of the class
-
-N.B. 3) based on https://github.com/JoeyDeVries/LearnOpenGL/blob/master/includes/learnopengl/mesh.h
-
-author: Davide Gadia, Michael Marchesan
-
-Real-Time Graphics Programming - a.a. 2020/2021
-Master degree in Computer Science
-Universita' degli Studi di Milano
+VAO : Vertex Array Object - a buffer that helps to "manage" VBO and its inner structure. It stores pointers to the different vertex attributes 
+stored in the VBO. When we need to render an object, we can just bind the corresponding VAO, and all the needed calls to set up the binding between vertex attributes and memory positions in the VBO are automatically configured.
 */
 
 #pragma once
@@ -37,20 +21,6 @@ struct Vertex {
     glm::vec3 Position;
     // Normal
     glm::vec3 Normal;
-    /*// Smoothed Normal
-    glm::vec3 Sm_Normal;
-    // Texture coordinates
-    glm::vec2 TexCoords;
-    // Tangent
-    glm::vec3 Tangent;
-    // Bitangent
-    glm::vec3 Bitangent;*/
-    glm::float32 curv1;
-    glm::float32 curv2;
-    glm::float32 fz;
-    glm::vec3 pdir1;
-    glm::vec3 pdir2;
-    glm::vec4 dcurv;
 };
 
 /////////////////// MESH class ///////////////////////
@@ -63,12 +33,6 @@ public:
     GLuint VAO;
 
     // We want Mesh to be a move-only class. We delete copy constructor and copy assignment
-    // see:
-    // https://docs.microsoft.com/en-us/cpp/cpp/constructors-cpp?view=vs-2019
-    // https://en.cppreference.com/w/cpp/language/copy_constructor
-    // https://en.cppreference.com/w/cpp/language/copy_assignment
-    // https://www.geeksforgeeks.org/preventing-object-copy-in-cpp-3-different-ways/
-    // Section 4.6 of the "A Tour in C++" book
     Mesh(const Mesh& copy) = delete; //anzichè delete
     Mesh& operator=(const Mesh &) = delete; //anzichè delete
 
@@ -82,14 +46,6 @@ public:
     }
 
     // We implement a user-defined move constructor and move assignment
-    // see:
-    // https://docs.microsoft.com/en-us/cpp/cpp/move-constructors-and-move-assignment-operators-cpp?view=vs-2019
-    // https://en.cppreference.com/w/cpp/language/move_constructor
-    // https://en.cppreference.com/w/cpp/language/move_assignment
-    // https://www.learncpp.com/cpp-tutorial/15-1-intro-to-smart-pointers-move-semantics/
-    // https://www.learncpp.com/cpp-tutorial/15-3-move-constructors-and-move-assignment/
-    // Section 4.6 of the "A Tour in C++" book
-
     // Move constructor
     // The source object of a move constructor is not expected to be valid after the move.
     // In our case it will no longer imply ownership of the GPU resources and its vectors will be empty.
@@ -141,7 +97,7 @@ public:
         glBindVertexArray(this->VAO);
         // rendering of data in the VAO
         if(isPatches){
-            //MODIFIED TO WORK WITH TESSELLATION SHADER
+            //This is used For Tessellation Shaders that uses GL_PATCHES instead of GL_TRIANGLES
             glDrawElements(GL_PATCHES, this->indices.size(), GL_UNSIGNED_INT, 0);
         }else{
             glDrawElements(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0);
@@ -157,10 +113,6 @@ private:
 
     //////////////////////////////////////////
     // buffer objects\arrays are initialized
-    // a brief description of their role and how they are binded can be found at:
-    // https://learnopengl.com/#!Getting-started/Hello-Triangle
-    // (in different parts of the page), or here:
-    // http://www.informit.com/articles/article.aspx?p=1377833&seqNum=8
     void setupMesh()
     {
         // we create the buffers
@@ -185,36 +137,6 @@ private:
         // Normals
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Normal));
-        // Texture Coordinates
-        /*glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Sm_Normal));
-        // Texture Coordinates
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, TexCoords));
-        // Tangent
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Tangent));
-        // Bitangent
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, Bitangent));*/
-        // Curv1
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, curv1));
-        // Curv2
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, curv2));
-        // Fz
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, fz));
-        // Pdir1
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, pdir1));
-        // Pdir2
-        glEnableVertexAttribArray(6);
-        glVertexAttribPointer(6, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, pdir2));
-        // DCurv
-        glEnableVertexAttribArray(7);
-        glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, dcurv));
         glBindVertexArray(0);
     }
 

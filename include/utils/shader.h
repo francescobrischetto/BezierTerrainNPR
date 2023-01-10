@@ -1,14 +1,6 @@
 /*
-Shader class - v1
+Shader class
 - loading Shader source code, Shader Program creation
-
-N.B. ) adaptation of https://github.com/JoeyDeVries/LearnOpenGL/blob/master/includes/learnopengl/shader.h
-
-author: Davide Gadia
-
-Real-Time Graphics Programming - a.a. 2020/2021
-Master degree in Computer Science
-Universita' degli Studi di Milano
 */
 
 #pragma once
