@@ -10,7 +10,6 @@
 *assimp-vc142-mt.lib
 
 # Debug symbols
-*.pdb
 *.dSYM
 
 # Codelite

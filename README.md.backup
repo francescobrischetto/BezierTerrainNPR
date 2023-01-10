@@ -1,7 +1,0 @@
-# OpenGL & C++ Project
-
-**Developed for Thesis titled "Applicazioni di Tecniche di Rendering non Fotorealistico in tempo reale a scenari e modelli 3D definiti in modo parametrico" - a.a. 2021/2022 - Master degree in Computer Science - Università degli Studi di Milano**
-
-This application extends the use of Suggestive Contours (Non-Photorealistic Rendering Technique) to models and terrains expressed using Bezier surfaces stitched togheter and evaluated in real-time using Tessellation Shader. Terrains are generated using Perlin Noise.
-
-*Francesco Brischetto*
